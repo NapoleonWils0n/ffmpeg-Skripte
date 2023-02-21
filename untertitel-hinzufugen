@@ -1,0 +1,101 @@
+#!/bin/sh
+
+#===============================================================================
+# subtitle-add
+# untertitel-hinzufügen
+# Untertitel zu einem Video hinzufügen
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Untertitel zu einem Video hinzufügen
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -s untertitel.srt -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-s untertitel.srt
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Subs-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:s:o:h' opt
+do
+  case ${opt} in
+     i) video="${OPTARG}";;
+     s) subs="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Erweiterung
+video_nopath="${video##*/}"
+video_name="${video_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+outfile_default="${video_name}-subs-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Audio ist AAC, Audiostream kopieren
+addsubs () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${video}" \
+    -f srt \
+    -i "${subs}" \
+    -c:a copy \
+    -c:v copy \
+    -c:s mov_text -metadata:s:s:0 \
+    language=eng \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# Führen Sie die addsubs-Funktion aus
+addsubs "$video" "$subs"

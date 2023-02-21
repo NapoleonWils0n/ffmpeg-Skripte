@@ -1,0 +1,85 @@
+#!/bin/sh
+
+#===============================================================================
+# ebu-meter
+# ffplay ebu meter
+#===============================================================================
+
+# Abhängigkeiten:
+# ffplay
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+[ -z "${1}" ] || echo "! ${1}"
+echo "\
+# ffplay ebu meter
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v|webm|aac|m4a|wav|mp3) -t (00)"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+# getopts überprüft und validiert Optionen
+while getopts ':i:t:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     t) target="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Variablen
+#===============================================================================
+
+# voreingestelltes Zielniveau
+target_default='16'
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# ebu-Funktion
+ebu () {
+    ffplay -hide_banner \
+    -f lavfi -i \
+    "amovie=${infile},
+    ebur128=video=1:
+    meter=18:
+    dualmono=true:
+    target=-${target:=${target_default}}:
+    size=1280x720 [out0][out1]"
+}
+
+# Führen Sie die ebu-Funktion aus
+ebu "${infile}"

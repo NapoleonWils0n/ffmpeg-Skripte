@@ -1,0 +1,210 @@
+#!/bin/sh
+
+#===============================================================================
+# combine-clips
+# kombinieren-clips
+# Kombinieren Sie eine Bild- oder Videodatei mit einem Audioclip
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg file grep
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage ()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Kombinieren Sie eine Bild- oder Videodatei mit einem Audioclip
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v|png|jpg) -a audio.(m4a|aac|wav|mp3) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v|png|jpg)
+-a audio.(m4a|aac|wav|mp3)
+-o ausgang.mp4 : Optionales Argument
+# Wenn die Option nicht angegeben wird, wird standardmäßig Eingabename-kombiniertes Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:a:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     a) audio="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Variablen
+#===============================================================================
+
+# Eingabe, Eingabename
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Audiodateierweiterung
+audio_ext="${audio##*.}"
+
+# file Befehl überprüft den MIME-Typ der Eingabedatei
+infile_filetype="$(file --mime-type -b "${infile}")"
+audio_filetype="$(file --mime-type -b "${audio}")"
+
+# Audio- und Video-Mime-Typen
+mov_mime='video/quicktime'
+mkv_mime='video/x-matroska'
+mp4_mime='video/mp4'
+m4v_mime='video/x-m4v'
+aac_mime='audio/x-hx-aac-adts'
+m4a_mime='audio/mp4'
+
+# Der Dateibefehl identifiziert .m4a-Audio fälschlicherweise als Videodatei
+# Also prüfen wir, ob die Dateierweiterung .m4a ist und setzen den MIME-Typ auf audio/mp4
+if [ "${audio_ext}" = 'm4a' ]; then
+    audio_filetype="${m4a_mime}"
+fi
+
+# Bildmimetypen
+png_mime='image/png'
+jpg_mime='image/jpeg'
+
+# Voreinstellungen für Variablen
+outfile_default="${infile_name}-combined-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+# Überprüfen Sie, ob der libfdk_aac-Codec installiert ist, falls nicht, greifen Sie auf den aac-Codec zurück
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# Überprüfen Sie die ffmpeg-AAC-Codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac-Codec ist installiert
+else
+   aac='aac' # Der libfdk_aac-Codec ist nicht installiert, greifen Sie auf den aac-Codec zurück
+fi
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Video - Audio ist aac, Audiostream kopieren
+record_copy () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${infile}" \
+    -i "${audio}" \
+    -shortest -fflags shortest -max_interleave_delta 100M \
+    -c:a copy \
+    -c:v copy \
+    -map 0:0 -map 1:0 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# video - audio ist nicht aac, audio als aac kodiert
+record_aac () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${infile}" \
+    -i "${audio}" \
+    -shortest -fflags shortest -max_interleave_delta 100M \
+    -c:a "${aac}" \
+    -c:v copy \
+    -map 0:0 -map 1:0 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# Bild - Audio ist aac, Audiostream kopieren
+record_img_copy () {
+  dur="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audio}")"
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -framerate 1/"${dur}" \
+  -i "${infile}" \
+  -i "${audio}" \
+  -c:a copy \
+  -c:v libx264 -crf 18 -profile:v high \
+  -r 30 -pix_fmt yuv420p \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Bild - Audio ist nicht AAC, codiertes Audio als AAC
+record_img_aac () {
+  dur="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audio}")"
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -framerate 1/"${dur}" \
+  -i "${infile}" \
+  -i "${audio}" \
+  -c:a "${aac}" \
+  -c:v libx264 -crf 18 -profile:v high \
+  -r 30 -pix_fmt yuv420p \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+
+#===============================================================================
+# Fall Aussage
+#===============================================================================
+
+# Führen Sie die ffmpeg-Funktion basierend auf dem Audio-Mime-Typ aus
+case "${infile_filetype}" in
+    "${mov_mime}"|"${mkv_mime}"|"${mp4_mime}"|"${m4v_mime}")
+        if [ "${audio_filetype}" = 'audio/x-hx-aac-adts' ]; then
+          # Video - Audio ist aac, Audiostream kopieren
+          record_copy
+            else
+          # video - audio ist nicht aac, audio als aac kodiert
+          record_aac
+        fi;;
+    "${png_mime}"|"${jpg_mime}")
+        if [ "${audio_filetype}" = "${aac_mime}" ]; then
+          # Bild - Audio ist aac, Audiostream kopieren
+          record_img_copy
+            else
+          # Bild - Audio ist nicht AAC, codiertes Audio als AAC
+          record_img_aac
+        fi;;
+    *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac

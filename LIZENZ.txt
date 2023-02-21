@@ -1,0 +1,29 @@
+BSD 3-Klausel-Lizenz
+
+Urheberrecht (c) [Jahr], [vollständiger Name]
+Alle Rechte vorbehalten.
+
+Weitergabe und Verwendung in Quell- und Binärform, mit oder ohne
+Änderungen sind zulässig, sofern die folgenden Bedingungen erfüllt sind:
+
+1. Weiterverteilungen des Quellcodes müssen den obigen Urheberrechtshinweis enthalten, dieser
+    Liste der Bedingungen und den folgenden Haftungsausschluss.
+
+2. Weiterverteilungen in binärer Form müssen den obigen Urheberrechtshinweis wiedergeben,
+    dieser Liste von Bedingungen und dem folgenden Haftungsausschluss in der Dokumentation
+    und/oder andere Materialien, die mit der Verteilung bereitgestellt werden.
+
+3. Weder der Name des Urheberrechtsinhabers noch die Namen seiner
+    Mitwirkende können verwendet werden, um abgeleitete Produkte zu unterstützen oder zu bewerben
+    diese Software ohne ausdrückliche vorherige schriftliche Genehmigung.
+
+DIESE SOFTWARE WIRD VON DEN URHEBERRECHTSINHABERN UND MITWIRKERN "OHNE MÄNGELGEWÄHR" ZUR VERFÜGUNG GESTELLT
+UND ALLE AUSDRÜCKLICHEN ODER STILLSCHWEIGENDEN GEWÄHRLEISTUNGEN, EINSCHLIESSLICH, ABER NICHT BESCHRÄNKT AUF DIE
+STILLSCHWEIGENDE GEWÄHRLEISTUNGEN DER MARKTFÄHIGKEIT UND EIGNUNG FÜR EINEN BESTIMMTEN ZWECK SIND
+ABGELEHNT. IN KEINEM FALL HAFTET DER INHABER DES URHEBERRECHTS ODER DIE MITARBEITER
+FÜR DIREKTE, INDIREKTE, ZUFÄLLIGE, SPEZIELLE, BEISPIELHAFTE ODER FOLGESCHÄDEN
+SCHÄDEN (EINSCHLIESSLICH, ABER NICHT BESCHRÄNKT AUF DIE BESCHAFFUNG VON ERSATZWAREN ODER
+DIENSTLEISTUNGEN; VERLUST VON NUTZUNG, DATEN ODER GEWINN; ODER BETRIEBSUNTERBRECHUNG) JEDOCH
+VERURSACHT UND AUF JEDER THEORIE DER HAFTUNG, OB AUS VERTRAG, GEFAHRENHAFTUNG,
+ODER DELIKT (EINSCHLIESSLICH FAHRLÄSSIGKEIT ODER ANDERWEITIG), DIE IN IRGENDEINER WEISE AUS DER NUTZUNG ENTSTEHEN
+DIESER SOFTWARE, AUCH WENN SIE AUF DIE MÖGLICHKEIT SOLCHER SCHÄDEN HINGEWIESEN WURDEN.

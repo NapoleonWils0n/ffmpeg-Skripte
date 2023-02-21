@@ -1,0 +1,125 @@
+#!/bin/sh
+
+#===============================================================================
+# pan-scan
+# pfanne-scan
+# Schwenken Sie über ein Bild
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg 
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage ()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Schwenken Sie über ein Bild
+
+$(basename "$0") -i eingang.(png|jpg|jpeg) -d (000) -p (l|r|u|d) -o ausgang.mp4
+-i = eingang.(png|jpg|jpeg)
+-d = dauer : aus 1-999
+-p = position : left, right, up, down
+-o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Pan-Datum-Uhrzeit"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:d:p:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     p) position="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Erweiterung
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Überprüfen Sie, ob die Kachel null ist
+if [ -z "${infile}" ]; then
+   : # Tile-Variable nicht gesetzt : = pass
+else
+# ffprobe ermittelt die Bildhöhe
+   imgsize="$(ffprobe -v error -select_streams v:0 -show_entries stream=height,width -of csv=s=x:p=0  "${infile}")"
+   img_w=$(echo "${imgsize}" | awk -F'x' '{print $1}')
+   img_h=$(echo "${imgsize}" | awk -F'x' '{print $2}')
+fi
+
+# Pfanne
+left="scale=w=-2:h=3*${img_h},crop=w=3*${img_w}/1.05:h=3*${img_h}/1.05:x=t*(in_w-out_w)/${dur},scale=w=${img_w}:h=${img_h},setsar=1" \
+right="scale=w=-2:h=3*${img_h},crop=w=3*${img_w}/1.05:h=3*${img_h}/1.05:x=(in_w-out_w)-t*(in_w-out_w)/${dur},scale=w=${img_w}:h=${img_h},setsar=1" \
+up="scale=w=-2:h=3*${img_h},crop=w=3*${img_w}/1.2:h=3*${img_h}/1.2:y=t*(in_h-out_h)/${dur},scale=w=${img_w}:h=${img_h},setsar=1" \
+down="scale=w=-2:h=3*${img_h},crop=w=3*${img_w}/1.2:h=3*${img_h}/1.2:y=(in_h-out_h)-t*(in_h-out_h)/${dur},scale=w=${img_w}:h=${img_h},setsar=1" \
+
+# Aufnahmeziel der Ausgabedatei
+outfile_default="${infile_name}-pan-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Zoom-Funktion
+pan_func () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -r 30 \
+  -y -loop 1 \
+  -i "${infile}" -ss 0 -t "${dur}" \
+  -filter_complex \
+  "${1}" \
+  -y -shortest \
+  -c:v libx264 -crf 18 -profile:v high \
+  -r 30 -pix_fmt yuv420p \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Überprüfen Sie Zoom und Position
+case "${position}" in
+     l) pan_func "${left}";;
+     r) pan_func "${right}" "${infile}";;
+     u) pan_func "${up}" "${infile}";;
+     d) pan_func "${down}" "${infile}";;
+     *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac

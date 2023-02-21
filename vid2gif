@@ -1,0 +1,105 @@
+#!/bin/sh
+
+#===============================================================================
+# vid2gif
+# Konvertieren Sie ein Video in eine GIF-Animation
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe cut
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Konvertieren Sie ein Video in eine GIF-Animation
+
+$(basename "$0") -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v) -t 00:00:00.000 -f [00] -w [0000] -o ausgang.gif
+-s 00:00:00.000 : Startzeit
+-i eingang.(mp4|mov|mkv|m4v)
+-t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
+-f [00]         : Bildrate
+-w [0000]       : Breite
+-o ausgang.gif  : optionales Argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig input-name-gif-date-time.gif verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':s:i:t:f:w:o:h' opt
+do
+  case ${opt} in
+     s) start="${OPTARG}";;
+     i) infile="${OPTARG}";;
+     t) end="${OPTARG}";;
+     f) framerate="${OPTARG}";;
+     w) width="${OPTARG}";;
+     h) usage;;
+     o) outfile="${OPTARG}";;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Name eingeben
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+start_default='00:00:00'
+end_default=$(ffprobe -v error -sexagesimal -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$infile" | cut -d\. -f1)
+framerate_default='15'
+width_default='320'
+outfile_default="${infile_name}-gif-$(date +"%Y-%m-%d-%H-%M-%S").gif"
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# GIF-Funktion erstellen
+create_gif () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start:=${start_default}}" \
+    -i "${infile}" \
+    -t "${end:=${end_default}}" \
+    -filter_complex "[0:v] fps=${framerate:=${framerate_default}},scale=${width:=${width_default}}:-1:flags=lanczos,split [a][b];[a] palettegen [p];[b][p] paletteuse" \
+    "${outfile:=${outfile_default}}"
+}
+
+# Führen Sie die create_gif-Funktion aus
+create_gif "${infile}"

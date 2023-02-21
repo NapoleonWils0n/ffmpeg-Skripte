@@ -1,0 +1,98 @@
+#!/bin/sh
+
+#===============================================================================
+# extract-frame
+# rahmen-extrahieren
+# Extrahieren Sie einen Frame aus einem Video als PNG-Datei
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Extrahieren Sie einen Frame aus einem Video als PNG-Datei
+https://trac.ffmpeg.org/wiki/Seeking
+
+$(basename "$0") -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -o ausgang.png
+-i eingang.(mp4|mov|mkv|m4v)
+-s 00:00:00.000    : optionales Argument #, wenn die Option nicht angegeben wird 00:00:00
+-o ausgang.png     : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Frame-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:s:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     s) seconds="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Variablen
+#===============================================================================
+
+# Eingabe, Eingabename
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Aufnahmeziel der Ausgabedatei
+outfile_default="${infile_name}-frame-$(date +"%Y-%m-%d-%H-%M-%S").png"
+seconds_default='00:00:00'
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Bild-zu-Video-Funktion
+extract () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -ss "${seconds:=${seconds_default}}" \
+  -i "${infile}" \
+  -q:v 2 -f image2 \
+  -vframes 1 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Führen Sie die Extraktionsfunktion aus
+extract "${infile}"

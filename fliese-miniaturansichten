@@ -1,0 +1,138 @@
+#!/bin/sh
+
+#===============================================================================
+# tile-thumbnails
+# fliese-miniaturansichten
+# Erstellen Sie ein Bild mit Miniaturansichten aus einem Video
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe awk bc
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+echo "\
+# Erstellen Sie ein Bild mit Miniaturansichten aus einem Video
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -o ausgang.png
+-i eingang.(mp4|mkv|mov|m4v|webm)
+-s Suchen Sie in der Videodatei            : Standard 00:00:05
+-w Thumbnail-Breite                        : 160
+-t Fliese layout format breite x höhe      : Standard 4x3
+-p Polsterung zwischen Bildern             : Standard 7
+-m Rand                                    : Standard 2
+-c Farbe = https://ffmpeg.org/ffmpeg-utils.html#color-syntax : Standard black
+-o ausgang.png :optionales Argument
+# Wenn die Option nicht bereitgestellt wird, wird standardmäßig Eingabename-Kachel-Datum-Uhrzeit.png verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# error messages
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:s:w:t:p:m:c:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     s) seek="${OPTARG}";;
+     w) scale="${OPTARG}";;
+     t) tile="${OPTARG}";;
+     p) padding="${OPTARG}";;
+     m) margin="${OPTARG}";;
+     c) color="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# ffprobe erhält fps und Dauer
+videostats=$(ffprobe \
+-v error \
+-select_streams v:0 \
+-show_entries stream=r_frame_rate:format=duration \
+-of default=noprint_wrappers=1 \
+"${infile}")
+
+# fps
+fps=$(echo "${videostats}" | awk -F'[=//]' '/r_frame_rate/{print $2}')
+
+# Dauer
+duration=$(echo "${videostats}" | awk -F'[=/.]' '/duration/{print $2}')
+
+# Überprüfen Sie, ob die Kachel null ist
+if [ -z "${tile}" ]; then
+   : # Tile-Variable nicht gesetzt : = pass
+else
+   # Tile-Variablensatz
+   # Fliesenlayout
+   tile_w=$(echo "${tile}" | awk -F'x' '{print $1}')
+   tile_h=$(echo "${tile}" | awk -F'x' '{print $2}')
+   # Titelsumme
+   tile_sum=$(echo "${tile_w} * ${tile_h}" | bc)
+fi
+
+# Voreinstellungen
+seek_default='00:00:05'
+scale_default='160'
+tile_layout_default='4x3'
+tile_default='12'
+padding_default='7'
+margin_default='2'
+color_default='black'
+outfile_default="${infile_name}-fliese-$(date +"%Y-%m-%d-%H-%M-%S").png"
+
+# Dauer * fps / Anzahl der Kacheln
+frames=$(echo "${duration} * ${fps} / ${tile_sum:=${tile_default}}" | bc)
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Kachelfunktion
+tilevideo () {
+ffmpeg \
+-hide_banner \
+-stats -v panic \
+-ss "${seek:=${seek_default}}" \
+-i "${infile}" \
+-frames 1 -vf "select=not(mod(n\,${frames})),scale=${scale:=${scale_default}}:-1,tile=${tile:=${tile_layout_default}}:padding=${padding:=${padding_default}}:margin=${margin:=${margin_default}}:color=${color:=${color_default}}" \
+"${outfile:=${outfile_default}}"
+}
+
+# Führen Sie die Tilevideo-Funktion aus
+tilevideo "${infile}"

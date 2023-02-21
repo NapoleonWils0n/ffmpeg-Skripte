@@ -1,0 +1,172 @@
+#!/bin/sh
+
+#===============================================================================
+# scene-detect
+# szene-erkennen
+# ffmpeg-Szenenerkennung
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe awk
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+$(basename "$0") -s 00:00:00 -i eingang -e 00:00:00 -t (0.1 - 0.9) -f sec -o ausgang
+
+-s 00:00:00 : startzeit
+-i eingang.(mp4|mov|mkv|m4v)
+-e 00:00:00 : endzeit
+-t (0.1 - 0.9) # schwelle
+-f sec # ausgabe in sekunden
+-o ausgang.txt"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':s:i:e:t:o:f:h' opt
+do
+  case ${opt} in
+     s) start="${OPTARG}";;
+     i) input="${OPTARG}";;
+     e) end="${OPTARG}";;
+     t) threshold="${OPTARG}";;
+     o) output="${OPTARG}";;
+     f) format="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Holen Sie sich den Namen der Eingabedatei
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# Name der Ausgabedatei
+output_default="${input_name}-Erkennung-$(date +"%Y-%m-%d-%H-%M-%S").txt"
+
+# Schwellenvorgabe
+threshold_default='0.3'
+
+# Startvorgabe
+start_default='0.0'
+
+
+#===============================================================================
+# ffprobe Videodauer
+#===============================================================================
+
+ffduration () {
+# Videodauer zum Anhängen an die geschnittene Datei
+duration_default=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${input}")
+
+# Wenn die Videodauer leer ist, beenden Sie den Vorgang
+[ -n "${duration_default}" ] || usage "${input} ${NOT_MEDIA_FILE_ERR}"
+}
+
+
+#===============================================================================
+# Konvertieren Sie die Zeiteingabe in Sekunden
+#===============================================================================
+
+checktime () {
+start=$(echo "${start}" | awk -F: 'NF==3 { print ($1 * 3600) + ($2 * 60) + $3 } NF==2 { print ($1 * 60) + $2 } NF==1 { print 0 + $1 }')
+end=$(echo "${end}" | awk -F: 'NF==3 { print ($1 * 3600) + ($2 * 60) + $3 } NF==2 { print ($1 * 60) + $2 } NF==1 { print 0 + $1 }')
+}
+
+
+#===============================================================================
+# ffmpeg-Szenenerkennung
+#===============================================================================
+
+# Szenenerkennung
+ffdetection () {
+detection="$(ffmpeg -hide_banner -i "${input}" -filter_complex "select='gt(scene,"${threshold:=${threshold_default}}")',metadata=print:file=-" -f null -)"
+}
+
+# Szenenerkennungsbereich
+ffdetection_range () {
+detection="$(ffmpeg -hide_banner -i "${input}" \
+-filter_complex "[0:0]select='between(t\,"${start}"\,"${end}")'[time];\
+[time]select='gt(scene,"${threshold:=${threshold_default}}")',metadata=print:file=-[out]" -map "[out]" -f null -)"
+}
+
+
+#===============================================================================
+# Schnittdatei erstellen - Start voranstellen und Ende oder Dauer anhängen
+#===============================================================================
+
+cutfile_seconds () {
+echo "${detection}" \
+| awk -F':' 'BEGIN { printf("%s\n", '"${start:=${start_default}}"') }/pts_time/ { printf("%s\n", $4) } END { printf("%s\n", '"${end:=${duration_default}}"') }' > "${output:=${output_default}}"
+}
+
+cutfile_minutes () {
+echo "${detection}" \
+| awk -F':' 'BEGIN { printf("%s\n", '"${start:=${start_default}}"') }/pts_time/ { printf("%s\n", $4) } END { printf("%s\n", '"${end:=${duration_default}}"') }' | awk -F. 'NF==1 { printf("%02d:%02d:%02d\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60) }\
+NF==2 { printf("%02d:%02d:%02d.%s\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60), ($2) }' \
+> "${output:=${output_default}}"
+}
+
+
+#===============================================================================
+# Lauffunktion
+#===============================================================================
+
+if [ -n "${start}" ] && [ -n "${end}" ]; then
+# Szenenerkennungsbereich im Video
+  checktime
+  ffdetection_range
+  if [ -n "${format}" ]; then
+  cutfile_seconds
+  else
+  cutfile_minutes
+  fi
+elif [ -n "${start}" ]; then
+  usage "${start} ${WRONG_ARGS_ERR}"
+elif [ -n "${end}" ]; then
+  usage "${end} ${WRONG_ARGS_ERR}"
+else 
+# Szene erkennt gesamtes Video
+  ffduration
+  ffdetection
+  if [ -n "${format}" ]; then
+  cutfile_seconds
+  else
+  cutfile_minutes
+  fi
+fi

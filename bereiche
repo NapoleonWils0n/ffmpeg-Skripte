@@ -1,0 +1,182 @@
+#!/bin/sh
+
+#===============================================================================
+# scopes
+# bereiche
+# ffplay-Videoskope
+#===============================================================================
+
+# Abhängigkeiten:
+# ffplay
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+[ -z "${1}" ] || echo "! ${1}"
+echo "\
+# ffplay-Videoskope
+
+$(basename "$0") -i eingang = histogramm
+$(basename "$0") -o eingang = rgb überlagern
+$(basename "$0") -p eingang = rgb parade
+$(basename "$0") -s eingang = rgb überlagern and parade
+$(basename "$0") -w eingang = wellenform
+$(basename "$0") -v eingang = Vektorskop
+$(basename "$0") -h = hilfe
+"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Histogramm überlagern
+histogram_overlay () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "split=2[a][b],
+    [b]histogram,
+    format=yuva444p[hh],
+    [a][hh]overlay=x=W-w:y=H-h"
+}
+
+
+# rgb überlagern
+rgb_overlay () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=2[a][b],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7:
+    display=overlay[bb],
+    [a][bb]vstack"
+}
+
+
+# rgb parade
+rgb_parade () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=2[a][b],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7[bb],
+    [a][bb]vstack"
+}
+
+
+# rgb überlagern and parade gestapelt
+rgb_stacked () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=gbrp,
+    split=3[a][b][c],
+    [b]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7:
+    display=overlay[bb],
+    [c]waveform=g=green:
+    s=ire:
+    fl=numbers:
+    filter=lowpass:
+    components=7[cc],
+    [bb][cc]vstack[d],
+    [a][d]vstack"
+}
+
+
+# Wellenform Tiefpass
+waveform_lowpass () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "split=2[a][b],
+    [b]waveform=f=lowpass:
+    s=ire:
+    g=green:
+    e=instant[bb],
+    [a][bb]vstack"
+}
+
+
+# Vektorskop
+vectorscope () {
+    ffplay "${infile}" \
+    -hide_banner \
+    -stats -v panic \
+    -vf \
+    "format=yuva444p9,
+    split=2[m][v],
+    [v]vectorscope=b=0.7:
+    m=color4:
+    e=peak+instant:
+    f=name:
+    g=color[v],
+    [m][v]overlay=x=W-w:y=H-h"
+}
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:o:p:s:w:v:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}"
+	histogram_overlay;;
+     o) infile="${OPTARG}"
+	rgb_overlay;;
+     p) infile="${OPTARG}"
+	rgb_parade;;
+     s) infile="${OPTARG}"
+	rgb_stacked;;
+     w) infile="${OPTARG}"
+	waveform_lowpass;;
+     v) infile="${OPTARG}"
+	vectorscope;;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))

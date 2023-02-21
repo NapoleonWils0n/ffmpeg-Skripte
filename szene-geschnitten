@@ -1,0 +1,99 @@
+#!/bin/sh
+
+#===============================================================================
+# scene-cut
+# szene-geschnitten
+# ffmpeg scene cut
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg 
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+$(basename "$0") -i eingang -c datei schneiden
+
+-i eingang.(mp4|mov|mkv|m4v)
+-c datei schneiden"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:c:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     c) cutfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Holen Sie sich den Namen der Eingabedatei
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+#===============================================================================
+# ffmpeg Clips erstellen - Nostdin erforderlich, um Konflikte mit dem Lesebefehl zu vermeiden
+#===============================================================================
+
+trim_video () {
+    output="${input_name}-${count}.mp4" 
+    ffmpeg \
+    -nostdin \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${input}" \
+    -t "${duration}" \
+    -c:a aac \
+    -c:v libx264 -profile:v high \
+    -pix_fmt yuv420p -movflags +faststart \
+    -f mp4 \
+    "${output}"
+}
+
+
+#===============================================================================
+# Datei lesen und IFS= setzen, lesen = Eingabe vor , Dauer = Eingabe nach ,
+#===============================================================================
+
+count=1
+while IFS=, read -r start duration; do
+  trim_video
+  count="$((count+1))"
+done < "${cutfile}"

@@ -1,0 +1,207 @@
+#!/bin/sh
+
+#===============================================================================
+# trim-clip
+# trimmen-clip
+# Trimmen Sie Video- oder Audioclips mit Millisekunden-Genauigkeit
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg file
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Trimmen Sie Video- oder Audioclips mit Millisekunden-Genauigkeit
+https://trac.ffmpeg.org/wiki/Seeking
+
+$(basename "$0") -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+-s 00:00:00.000 : Startzeit
+-i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3)
+-t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
+-o ausgang.(mp4|aac|mp3|wav) : optionales Argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig der Eingabename-getrimmtes-Datum-Uhrzeit.(mp4|wav) verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':s:i:t:o:h' opt
+do
+  case ${opt} in
+     s) start="${OPTARG}";;
+     i) infile="${OPTARG}";;
+     t) end="${OPTARG}";;
+     h) usage;;
+     o) outfile="${OPTARG}";;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Name eingeben
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Eingang datei verlängerung
+infile_ext="${infile##*.}"
+
+# file Befehl überprüft den MIME-Typ der Eingabedatei
+filetype="$(file --mime-type -b "${infile}")"
+
+# Video-Mime-Typen
+mov_mime='video/quicktime'
+mkv_mime='video/x-matroska'
+mp4_mime='video/mp4'
+m4v_mime='video/x-m4v'
+wav_mime='audio/x-wav'
+audio_mime='audio/mpeg'
+aac_mime='audio/x-hx-aac-adts'
+m4a_mime='audio/mp4'
+
+# Der Dateibefehl identifiziert .m4a-Audio fälschlicherweise als Videodatei
+# Also prüfen wir, ob die Dateierweiterung .m4a ist und setzen den MIME-Typ auf audio/mp4
+if [ "${infile_ext}" = 'm4a' ]; then
+    filetype="${m4a_mime}"
+fi
+
+# Standardwerte für Variablen, falls nicht definiert
+videofile_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+aac_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").aac"
+mp3_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").mp3"
+wav_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").wav"
+m4a_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").m4a"
+
+
+#===============================================================================
+# Überprüfen Sie, ob der libfdk_aac-Codec installiert ist, falls nicht, greifen Sie auf den aac-Codec zurück
+#===============================================================================
+
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# Überprüfen Sie die ffmpeg-AAC-Codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac-Codec ist installiert
+else
+   aac='aac' # Der libfdk_aac-Codec ist nicht installiert, greifen Sie auf den aac-Codec zurück
+fi
+
+
+#===============================================================================
+# Audio- und Videofunktionen
+#===============================================================================
+
+# Videoclip schneiden
+trim_video () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a "${aac}" \
+    -c:v libx264 -profile:v high \
+    -pix_fmt yuv420p -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${videofile_default}}"
+}
+
+# AAC-Audioclip zuschneiden
+trim_aac () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a "${aac}" \
+    -f adts \
+    "${outfile:=${aac_default}}"
+}
+
+# Trimmen Sie den m4a-Audioclip
+trim_m4a () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a "${aac}" \
+    -f mp4 \
+    "${outfile:=${m4a_default}}"
+}
+
+# MP3-Audioclip schneiden
+trim_mp3 () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a libmp3lame \
+    -f mp3 \
+    "${outfile:=${mp3_default}}"
+}
+
+# Wav-Audioclip trimmen
+trim_wav () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a pcm_s16le \
+    -f wav \
+    "${outfile:=${wav_default}}"
+}
+
+
+#===============================================================================
+# Überprüfen Sie den MIME-Typ der Datei
+#===============================================================================
+
+case "${filetype}" in
+    "${mov_mime}"|"${mkv_mime}"|"${mp4_mime}"|"${m4v_mime}") trim_video "${infile}";;
+    "${aac_mime}") trim_aac "${infile}";;
+    "${m4a_mime}") trim_m4a "${infile}";;
+    "${audio_mime}") trim_mp3 "${infile}";;
+    "${wav_mime}") trim_wav "${infile}";;
+    *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac

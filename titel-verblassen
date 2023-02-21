@@ -1,0 +1,235 @@
+#!/bin/sh
+
+#===============================================================================
+# fade-title
+# titel-verblassen
+# Video ausblenden, Audio Titel aus Videodateiname hinzufügen
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg file awk grep bc cut tail
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage ()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Video ausblenden, Audio Titel aus Videodateinamen hinzufügen
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -s 000 -e 000 -o ausgang.mp4
+
+-i eingang.(mp4|mkv|mov|m4v)
+-d (0.[0-9]|1) : von 0,1 bis 0,9 oder 1 : optionales Argument # wenn die Option nicht angegeben wird, ist standardmäßig 0,5
+-s 000         : von 000 bis 999
+-e 000         : von 000 bis 999
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Titel-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+TITLE_FADE_ERR='Titelende muss nach Titelanfang liegen'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:d:s:e:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     s) title_start="${OPTARG}";;
+     e) title_end="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Dateierweiterung
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# file Befehl überprüft den MIME-Typ der Eingabedatei
+filetype="$(file --mime-type -b "${infile}")"
+
+# Video-Mime-Typen
+mov_mime='video/quicktime'
+mkv_mime='video/x-matroska'
+mp4_mime='video/mp4'
+m4v_mime='video/x-m4v'
+
+# Überprüfen Sie den MIME-Typ der Datei
+case "${filetype}" in
+    "${mov_mime}"|"${mkv_mime}"|"${mp4_mime}"|"${m4v_mime}");;
+    *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac
+
+# Standardwerte für Variablen, falls nicht definiert
+outfile_default="${infile_name}-title-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+duration_default="0.5"
+
+# Analysedatei drucken
+echo '+ Datei mit ffmpeg analysieren'
+
+# ffmpeg loudnorm erhält Statistiken aus der Datei
+normalize=$(ffmpeg \
+-hide_banner \
+-i "${infile}" \
+-af "loudnorm=I=-16:dual_mono=true:TP=-1.5:LRA=11:print_format=summary" \
+-f null - 2>&1 | tail -n 12)
+
+# Lesen Sie die Ausgabe von Normalize Zeile für Zeile und speichern Sie sie in Variablen
+for line in "${normalize}"; do
+    measured_I=$(echo "${line}" | awk -F' ' '/Input Integrated:/ {print $3}')
+    measured_TP=$(echo "${line}" | awk -F' ' '/Input True Peak:/ {print $4}')
+    measured_LRA=$(echo "${line}" | awk -F' ' '/Input LRA:/ {print $3}')
+    measured_thresh=$(echo "${line}" | awk -F' ' '/Input Threshold:/ {print $3}')
+    offset=$(echo "${line}" | awk -F' ' '/Target Offset:/ {print $3}')
+done
+
+# Videodauer und Videooffset minus 1 Sekunde für Ausblendung
+video_dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${infile}" | cut -d\. -f1)
+vid_offset=$(echo "${video_dur}-${dur:=${duration_default}}" | bc -l)
+
+# Videohöhe
+video_size=$(ffprobe -v error -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 "${infile}")
+
+# Videotitel aus Dateiname
+title="${infile_name}"
+
+# Videotitel-Variablen
+font="OpenSans-Regular.ttf"
+font_color="white"
+boxcolor="black@0.4"
+
+# Videotitel verblassen
+DS="${title_start}" # Beginn anzeigen
+DE="${title_end}" # Anzeige Ende, Anzahl Sekunden nach Start
+FID="${dur:=${duration_default}}" # Einblenddauer
+FOD="${dur:=${duration_default}}" # Ausblenddauer
+# überprüfen Sie, ob das Titelende eine Nummer größer als der Titelanfang ist
+if [ "${DE}" -le "${DS}" ]; then
+    echo "${TITLE_FADE_ERR}" && usage
+fi
+
+# Berechnen Sie die Drawbox- und Drawtext-Größe basierend auf der Videohöhe
+case "${video_size}" in
+    1080) # 1080 Höhe
+    drawbox_height=$(echo "${video_size}/13.4" | bc)
+    drawtext_size=$(echo "${drawbox_height}/2" | bc)
+    ;;
+    720) # 720 Höhe
+    drawbox_height=$(echo "${video_size}/9" | bc)
+    drawtext_size=$(echo "${drawbox_height}/2" | bc)
+    ;;
+    *) # alle anderen Höhen
+    drawbox_height=$(echo "${video_size}/9" | bc)
+    drawtext_size=$(echo "${drawbox_height}/2" | bc)
+    ;;
+esac
+
+# Drawbox, Drawtextgröße
+boxheight="${drawbox_height}"
+font_size="${drawtext_size}"
+
+# Überprüfen Sie, ob der libfdk_aac-Codec installiert ist, falls nicht, greifen Sie auf den aac-Codec zurück
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# Überprüfen Sie die ffmpeg-AAC-Codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac-Codec ist installiert
+else
+   aac='aac' # Der libfdk_aac-Codec ist nicht installiert, greifen Sie auf den aac-Codec zurück
+fi
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Videofunktion
+video () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${infile}" \
+    -filter_complex \
+    "[0:a] afade=t=in:st=0:d=${dur:=${duration_default}},afade=t=out:st='${vid_offset}':d=${dur:=${duration_default}},
+    compand=attacks=0:points=-70/-90|-24/-12|0/-6|20/-6,
+    highpass=f=60,
+    lowpass=f=13700,
+    afftdn=nt=w,
+    adeclick,
+    deesser,
+    loudnorm=I=-16:
+    dual_mono=true:
+    TP=-1.5:
+    LRA=11:
+    measured_I=${measured_I}:
+    measured_LRA=${measured_LRA}:
+    measured_TP=${measured_TP}:
+    measured_thresh=${measured_thresh}:
+    offset=${offset}:
+    linear=true:
+    print_format=summary [audio];
+    [0:v] fade=t=in:st=0:d=${dur:=${duration_default}},fade=t=out:st='${vid_offset}':d=${dur:=${duration_default}}, \
+    format=yuv444p, 
+    drawbox=enable='between(t,${DS},${DE})':
+    y=(ih-h/PHI)-(${boxheight}):
+    color=${boxcolor}:
+    width=iw:height=${boxheight}:t=fill,
+    drawtext=fontfile=${font}:
+    text=${title}: 
+    fontcolor=${font_color}:fontsize=${font_size}:
+    x=20:
+    y=h-(${boxheight})-(${boxheight}/2)+th/4:
+    :fontcolor_expr=fdfdfd%{eif\\\\: clip(255*(1*between(t\\, $DS + $FID\\, $DE - $FOD) + ((t - $DS)/$FID)*between(t\\, $DS\\, $DS + $FID) + (-(t - $DE)/$FOD)*between(t\\, $DE - $FOD\\, $DE) )\\, 0\\, 255) \\\\: x\\\\: 2 }, \
+     format=yuv420p[video]" \
+    -map "[video]" -map "[audio]" \
+    -c:a "${aac}" -ar 44100 \
+    -c:v libx264 -preset fast \
+    -profile:v high \
+    -crf 18 -coder 1 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# Überprüfen Sie den MIME-Typ der Datei
+case "${filetype}" in
+    "${mov_mime}"|"${mkv_mime}"|"${mp4_mime}"|"${m4v_mime}") video "${infile}";;
+    *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac

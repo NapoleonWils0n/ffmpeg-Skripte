@@ -1,0 +1,111 @@
+#!/bin/sh
+
+#===============================================================================
+# overlay-clip
+# uberzug-clip
+# einen Videoclip über einen anderen Videoclip legen
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe cut 
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# einen Videoclip über einen anderen Videoclip legen
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -v eingang.(mp4|mkv|mov|m4v) -p [0-999] -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v) : unteres Video
+-v eingang.(mp4|mkv|mov|m4v) : Video überlagern
+-p [0-999]                   : Zeit, um das Video zu überlagern
+-o ausgang.mp4               : optionales Argument # Wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Overlay-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:v:p:o:h' opt
+do
+  case ${opt} in
+     i) video="${OPTARG}";;
+     v) overlay="${OPTARG}";;
+     p) position="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Videonamenerweiterung und Overlay-Videoerweiterungen
+video_nopath="${video##*/}"
+video_name="${video_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+outfile_default="${video_name}-overlay-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Overlay-Video-Funktion
+overlay_video () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -i "${video}" \
+  -i "${overlay}" \
+  -filter_complex \
+  "[0:0]setpts=PTS-STARTPTS[firstclip];
+   [1:0]setpts=PTS+${position}/TB[secondclip];
+   [firstclip][secondclip]overlay=enable='between(t\,${position},${dp})'[ov]" \
+  -map "[ov]" -map 0:1 \
+  -pix_fmt yuv420p \
+  -c:a copy -c:v libx264 -crf 18 \
+  -movflags +faststart \
+  -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Holen Sie sich die Dauer von Overlay-Videos mit ffprobe
+duration="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${overlay}" | cut -d\. -f1)"
+
+# Position + Dauer
+dp="$((position+duration))"
+
+# Führen Sie die Funktion overlay_video aus
+overlay_video "${video}" "${overlay}"

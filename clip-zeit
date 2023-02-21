@@ -1,0 +1,126 @@
+#!/bin/sh
+
+#===============================================================================
+# clip-time
+# clip-zeit
+# ffmpeg-Schnittliste erstellen
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+$(basename "$0") -i eingang -o ausgang
+
+-i eingang
+-o ausgang"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:o:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     h) usage;;
+     o) output="${OPTARG}";;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Variablen
+#===============================================================================
+
+# Holen Sie sich den Namen der Eingabedatei
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# Name der Ausgabedatei
+output_default="${input_name}-cutlist-$(date +"%Y-%m-%d-%H-%M-%S").txt"
+
+
+#===============================================================================
+# awk subtrahiere die zweite Zeile von der ersten Zeile - drucke Start und Dauer
+#===============================================================================
+
+seconds () {
+awk -F. 'NR > 1 && NR%2 == 0 {printf("%s%s%s\n"), prev, ",", $0-prev}; {prev = $0}' < "${input}" > "${output:=${output_default}}"
+}
+
+#===============================================================================
+# Konvertieren Sie Sexagesimal in Sekunden - und subtrahieren Sie die zweite Zeile von der ersten Zeile
+# Konvertieren Sie von Sekunden zurück in Sexagesimal
+#===============================================================================
+
+minutes () {
+awk -F: 'NF==3 { printf("%s\n"), ($1 * 3600) + ($2 * 60) + $3 } NF==2 { print ($1 * 60) + $2 } NF==1 { printf("$s\n"), 0 + $1 }' < "${input}" \
+| awk 'NR > 1 && NR%2 == 0 {printf("%s%s%s\n"), prev, "\n", $0-prev}; {prev = $0}' \
+| awk -F. 'NF==1 { printf("%02d:%02d:%02d\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60) }\
+NF==2 { printf("%02d:%02d:%02d.%s\n"), ($1 / 3600), ($1 % 3600 / 60), ($1 % 60), ($2) }' \
+| awk '{ORS = NR%2 ? "," : "\n"} 1' > "${output:=${output_default}}"
+}
+
+
+#===============================================================================
+# Timecode-Regex
+#===============================================================================
+
+# schnappen Sie sich die erste Zeile der Datei
+check=$(head -n1 "${input}")
+
+# Minuten - Spiel 00:00:00.000
+minutes_regex='^[0-9]{1,2}:[0-9]{2}:[0-9]{2}([.]{1}[0-9]{1,6})?$'
+
+# Sekunden - übereinstimmen 00:00:00.000
+seconds_regex='^[0-9]{1,8}([.]{1}[0-9]{1,6})?$'
+
+# grep für die Minuten
+minutes=$(echo "${check}" | grep -E "${minutes_regex}")
+
+# grep für die Sekunden
+seconds=$(echo "${check}" | grep -E "${seconds_regex}")
+
+
+#===============================================================================
+# Timecode und Run-Funktion prüfen
+#===============================================================================
+
+if [ -n "${minutes}" ]; then
+  minutes
+elif [ -n "${seconds}" ]; then
+  seconds
+else 
+    usage
+fi

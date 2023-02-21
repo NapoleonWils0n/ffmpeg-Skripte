@@ -1,0 +1,146 @@
+#!/bin/sh
+
+#===============================================================================
+# fade-clip
+# überblenden-clip
+# Video und Audio ein- und ausblenden
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg bc
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+echo "\
+# Video und Audio ein- und ausblenden
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-d (0.[0-9]|1) : optionales Argument # wenn die Option nicht angegeben wird, ist der Standardwert 0,5
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Fade-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:d:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Erweiterung
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+outfile_default="${infile_name}-fade-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+duration_default="0.5"
+
+# Überprüfen Sie, ob der libfdk_aac-Codec installiert ist, falls nicht, greifen Sie auf den aac-Codec zurück
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# Überprüfen Sie die ffmpeg-AAC-Codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac-Codec ist installiert
+else
+   aac='aac' # Der libfdk_aac-Codec ist nicht installiert, greifen Sie auf den aac-Codec zurück
+fi
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# ffmpeg Videospur überblenden
+fade_v () {
+    echo '+ Getting video duration' && \
+    video_dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${infile}" | cut -d\. -f1)
+    vid_offset=$(echo "${video_dur}-${dur:=${duration_default}}" | bc -l)
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${infile}" \
+    -filter_complex \
+    " [0:v] fade=t=in:st=0:d=${dur:=${duration_default}},fade=t=out:st='${vid_offset}':d=${dur:=${duration_default}}[fv] " \
+    -map "[fv]" \
+    -c:v libx264 -preset fast \
+    -profile:v high \
+    -crf 18 -coder 1 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# Video- und Audiospuren ausblenden
+fade_va () {
+    echo '+ Getting video duration' && \
+    video_dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${infile}" | cut -d\. -f1)
+    vid_offset=$(echo "${video_dur}-${dur:=${duration_default}}" | bc -l)
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${infile}" \
+    -filter_complex \
+    " [0:a] afade=t=in:st=0:d=${dur:=${duration_default}},afade=t=out:st='${vid_offset}':d=${dur:=${duration_default}}[fa]; 
+      [0:v] fade=t=in:st=0:d=${dur:=${duration_default}},fade=t=out:st='${vid_offset}':d=${dur:=${duration_default}}[fv]
+    " \
+    -map "[fv]" -map "[fa]" \
+    -c:a "${aac}" \
+    -c:v libx264 -preset fast \
+    -profile:v high \
+    -crf 18 -coder 1 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+# Überprüfen Sie, ob das Video eine Audiospur hat
+audio_check="$(ffprobe -i "${infile}" -show_streams -select_streams a -loglevel error)"
+
+# Überprüfen Sie, ob audio_check null ist, was bedeutet, dass das Video keine Audiospur hat
+if [ -z "${audio_check}" ]; then
+   fade_v "${infile}" # Nullwert
+else
+   fade_va "${infile}" # Nicht-Null-Wert
+fi

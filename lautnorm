@@ -1,0 +1,75 @@
+#!/bin/sh
+
+#===============================================================================
+# loudnorm
+# lautnorm
+# ffmpeg loudnorm
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# ffmpeg lautnorm
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# ffmpeg loudnorm erhält Statistiken aus der Datei
+normalize () {
+    ffmpeg \
+    -hide_banner \
+    -i "${infile}" \
+    -af "loudnorm=I=-16:dual_mono=true:TP=-1.5:LRA=11:print_format=summary" \
+    -f null -
+}
+
+# Führen Sie die Normalisierungsfunktion aus
+normalize "${infile}"

@@ -1,0 +1,136 @@
+#!/bin/sh
+
+#===============================================================================
+# xfade
+# ffmpeg Xfade-Übergänge
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe bc
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# ffmpeg Xfade-Übergänge
+
+$(basename "$0") -a clip1.(mp4|mkv|mov|m4v) -b clip2.(mp4|mkv|mov|m4v) -d dauer -t Übergang -f versetzt -o ausgang.mp4
+-a clip1.(mp4|mkv|mov|m4v) : erster Clip
+-b clip2.(mp4|mkv|mov|m4v) : zweiter Clip
+-d dauer                   : Übergangszeit
+-t übergang                : Übergang
+-f versetzt                : versetzt
+-o ausgang.mp4             : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-xfade-Datum-Uhrzeit verwendet
+
++ übergänge
+
+circleclose, circlecrop, circleopen, diagbl, diagbr, diagtl, diagtr, dissolve, distance
+fade, fadeblack, fadegrays, fadewhite, hblur, hlslice, horzclose, horzopen, hrslice
+pixelize, radial, rectcrop, slidedown, slideleft, slideright, slideup, smoothdown
+smoothleft, smoothright, smoothup, squeezeh, squeezev, vdslice, vertclose, vertopen, vuslice
+wipebl, wipebr, wipedown, wipeleft, wiperight, wipetl, wipetr, wipeup"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':a:b:d:t:f:o:h' opt
+do
+  case ${opt} in
+     a) clip1="${OPTARG}";;
+     b) clip2="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     t) transition="${OPTARG}";;
+     f) offset="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Erweiterung
+clip1_nopath="${clip1##*/}"
+clip1_name="${clip1_nopath%.*}"
+
+# Voreinstellungen
+duration_default='0.5'
+transition_default='fade'
+outfile_default="${clip1_name}-xfade-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+# Versatz- und Daueroptionen nicht festgelegt
+if [ -z "${offset}" ];then
+    # die Dauer von Clip 1, um den standardmäßigen Übergangsversatz zu berechnen
+    clip1_dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${clip1}")
+    
+    # Dezimalpunkt abrunden
+    clip1_time=$(printf "%.1f\n" "${clip1_dur}")
+    
+    # Clip1-Dauer minus Dauervorgabe und 0,1 Sekunden, die für den Übergang benötigt werden
+    offset_default=$(echo "${clip1_time}" - "${dur:=${duration_default}}" - 0.1 | bc -l)
+    
+    # Audio-Trimm-Standardeinstellung Offset-Standardeinstellung
+    audio_trim_default=$(echo "${clip1_time}" - 0.1 | bc -l)
+else
+    # Versatz- und Daueroptionen eingestellt
+    # Trimmen Sie das Audio, um die Länge der Dauer und des Offsets anzupassen
+    audio_trim=$(echo "${dur} + ${offset}" | bc -l)
+fi
+
+
+#===============================================================================
+# Funktion
+#===============================================================================
+
+# Video und Audio überblenden
+xfade_va () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${clip1}" -i "${clip2}" \
+    -filter_complex \
+    "[0:v][1:v]xfade=transition='${transition:=${transition_default}}':duration='${dur:=${duration_default}}':offset='${offset:=${offset_default}}'[xfade];
+    [0:a]atrim=0:'${audio_trim:=${audio_trim_default}}'[atrim];
+    [atrim][1:a]acrossfade=d='${dur:=${duration_default}}'[afade]
+    " \
+    -map "[xfade]" -map "[afade]" \
+    -pix_fmt yuv420p \
+    -movflags +faststart -f mp4 \
+    "${outfile:=${outfile_default}}"
+}
+
+
+# Führen Sie die xfade_va-Funktion aus
+xfade_va "${clip1}" "${clip2}"

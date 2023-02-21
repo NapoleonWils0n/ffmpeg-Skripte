@@ -1,0 +1,117 @@
+#!/bin/sh
+
+#===============================================================================
+# webp
+# ffmpeg libwebp_anim
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Webp animiertes Bild
+
+$(basename "$0") -i eingang -c 0-6 -q 0-100 -f 15 -w 600 -p none -o ausgang.webp
+-i eingang
+-c komprimierungsstufe: 0 - 6: standard 4
+-q qualität: 0 - 100 : standard 80
+-f framerate: standard 15
+-w breite: standard 600px
+-p voreingestellt: none|default|picture|photo|drawing|icon|text : standard none
+-o ausgang.webp : optionales argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig input-name.webp verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:c:q:f:w:p:o:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     c) compression="${OPTARG}";;
+     q) quality="${OPTARG}";;
+     f) framerate="${OPTARG}";;
+     w) width="${OPTARG}";;
+     p) preset="${OPTARG}";;
+     o) output="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Name eingeben
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+compression_default='4'
+quality_default='80'
+preset_default='none'
+framerate_default='15'
+width_default='600'
+output_default="${input_name}.webp"
+
+
+#===============================================================================
+# ffmpeg webp Animationsfunktion
+#===============================================================================
+
+animation () {
+ffmpeg \
+-hide_banner \
+-stats -v panic \
+-i "${input}" \
+-c:v libwebp_anim \
+-lossless 0 \
+-compression_level "${compression:=${compression_default}}" \
+-quality "${quality:=${quality_default}}" \
+-cr_threshold 0 \
+-cr_size 16 \
+-preset "${preset:=${preset_default}}" \
+-loop 1 \
+-an -vsync 0 \
+-vf "fps=fps=${framerate:=${framerate_default}},scale=${width:=${width_default}}:-1:flags=lanczos" \
+"${output:=${output_default}}"
+}
+
+
+#===============================================================================
+# Führen Sie die ffmpeg-Webp-Animationsfunktion aus
+#===============================================================================
+
+animation

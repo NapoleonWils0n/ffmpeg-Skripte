@@ -1,0 +1,136 @@
+#!/bin/sh
+
+#===============================================================================
+# audio-silence
+# audio-stille
+# Stummes Audio zu einem Videoclip hinzufügen
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage ()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# Audio-stille fügt einem Videoclip stummen Ton hinzu
+
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -c (mono|stereo) -r (44100|48000) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-c (mono|stereo) : optionales Argument # wenn die Option nicht angegeben wird, ist die Standardeinstellung mono
+-r (44100|48000) : optionales Argument # wenn Option nicht angegeben, standardmäßig 44100
+-o ausgang.mp4   : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Stille-Datum-Uhrzeit verwendet"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:c:r:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     c) channel="${OPTARG}"
+        { [ "${channel}" = 'mono' ] || [ "${channel}" = 'stereo' ]; } || usage;;
+     r) rate="${OPTARG}"
+        { [ "${rate}" = '44100' ] || [ "${rate}" = '48000' ]; } || usage;;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingang
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# Standardwerte für Variablen, falls nicht definiert
+channel_default='mono'
+rate_default='44100'
+outfile_default="${infile_name}-silence-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+# Überprüfen Sie, ob der libfdk_aac-Codec installiert ist, falls nicht, greifen Sie auf den aac-Codec zurück
+aac_codec="$(ffmpeg -hide_banner -stats -v panic -h encoder=libfdk_aac)"
+aac_error="Codec 'libfdk_aac' is not recognized by FFmpeg."
+aac_check="$(echo "${aac_codec}" | grep "${aac_error}")"
+
+# Überprüfen Sie die ffmpeg-AAC-Codecs
+if [ -z "${aac_check}" ]; then
+   aac='libfdk_aac' # libfdk_aac-Codec ist installiert
+else
+   aac='aac' # Der libfdk_aac-Codec ist nicht installiert, greifen Sie auf den aac-Codec zurück
+fi
+
+
+#===============================================================================
+# Funktionen
+#===============================================================================
+
+# Video funktion
+video_silence () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -f lavfi \
+  -i anullsrc=channel_layout="${channel:=${channel_default}}":sample_rate="${rate:=${rate_default}}" \
+  -i "${infile}" \
+  -shortest -c:v copy -c:a "${aac}" \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Video- und Audio funktion
+video_audio_silence () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -f lavfi \
+  -i anullsrc=channel_layout="${channel:=${channel_default}}":sample_rate="${rate:=${rate_default}}" \
+  -i "${infile}" \
+  -shortest -c:v copy -c:a "${aac}" \
+  -map 0:0 -map 1:0 \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Überprüfen Sie, ob das Video eine Audiospur hat
+audio_check="$(ffprobe -i "${infile}" -show_streams -select_streams a -loglevel error)"
+
+# Überprüfen Sie, ob audio_check null ist, was bedeutet, dass das Video keine Audiospur hat
+if [ -z "${audio_check}" ]; then
+   video_silence "${infile}" # Null wert
+else
+   video_audio_silence "${infile}" # Nicht-Null-Wert
+fi

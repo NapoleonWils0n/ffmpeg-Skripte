@@ -1,0 +1,213 @@
+#!/bin/sh
+
+#===============================================================================
+# zoompan
+# ken burns wirkung
+#===============================================================================
+
+# Abhängigkeiten:
+# ffmpeg ffprobe 
+
+#===============================================================================
+# Verwendung von Skripten
+#===============================================================================
+
+usage ()
+{
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+# ken burns wirkung
+
+$(basename "$0") -i eingang.(png|jpg|jpeg) -d (000) -z (in|out) -p (tl|c|tc|tr|bl|br) -o ausgang.mp4
+-i = eingang.(png|jpg|jpeg)
+-d = dauer       : von 1-999
+-z = zoomen      : in or out
+-p = position    : Zoomen Sie auf die unten aufgeführte Position
+-o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Zoompan-Datum-Uhrzeit
+
++------------------------------+
++tl            tc            tr+
++                              +        
++              c               +
++                              +
++bl                          br+
++------------------------------+"
+exit 2
+}
+
+
+#===============================================================================
+# Fehlermeldungen
+#===============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='erfordert eine Argumentation'
+WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
+NOT_MEDIA_FILE_ERR='ist keine Mediendatei'
+
+
+#===============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#===============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#===============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#===============================================================================
+
+while getopts ':i:d:z:p:o:h' opt
+do
+  case ${opt} in
+     i) infile="${OPTARG}";;
+     d) dur="${OPTARG}";;
+     z) zoom="${OPTARG}"
+        [ "${zoom}" = 'in' ] || [ "${zoom}" = 'out' ];;
+     p) position="${OPTARG}";;
+     o) outfile="${OPTARG}";;
+     h) usage;;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#===============================================================================
+# variablen
+#===============================================================================
+
+# Eingabe, Eingabename und Erweiterung
+infile_nopath="${infile##*/}"
+infile_name="${infile_nopath%.*}"
+
+# ffprobe ermittelt die Bildhöhe
+imgheight="$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=nw=1:nk=1 "${infile}")"
+
+# Bilder pro Sekunde
+infps='30'
+
+# Positionen vergrößern
+
+# oben links vergrößern
+zi_top_left="scale=-2:10*ih,\
+zoompan=z='min(zoom+0.0015,1.5)':\
+fps=${infps}:d=${infps}*${dur},\
+scale=-2:${imgheight}" \
+
+# in die Mitte zoomen
+zi_center="scale=-2:10*ih,\
+zoompan=z='min(zoom+0.0015,1.5)':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/2-(iw/zoom/2)':\
+y='ih/2-(ih/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# oben in die Mitte zoomen
+zi_top_center="scale=-2:10*ih,\
+zoompan=z='min(zoom+0.0015,1.5)':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/2-(iw/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# oben rechts vergrößern
+zi_top_right="scale=-2:10*ih,\
+zoompan=z='min(zoom+0.0015,1.5)':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/zoom-(iw/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# Positionen verkleinern
+
+# oben links herauszoomen
+zo_top_left="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur},\
+scale=-2:${imgheight}" \
+
+zo_center="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# Verkleinern Sie die obere Mitte
+zo_top_center="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/2-(iw/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# oben rechts rauszoomen
+zo_top_right="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw/zoom-(iw/zoom/2)',\
+scale=-2:${imgheight}" \
+
+# unten links verkleinern
+zo_bottom_left="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur}:\
+y='ih-ih/zoom',\
+scale=-2:${imgheight}" \
+
+# Unten rechts rauszoomen
+zo_bottom_right="scale=-2:2*ih,\
+zoompan=z='if(lte(zoom,1.0),1.5,max(1.001,zoom-0.0015))':\
+fps=${infps}:d=${infps}*${dur}:\
+x='iw-iw/zoom':\
+y='ih-ih/zoom',\
+scale=-2:${imgheight}" \
+
+# outfile-Dateiaufnahmeziel
+outfile_default="${infile_name}-zoompan-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+
+
+#===============================================================================
+# Funktion
+#===============================================================================
+
+# Zoom-Funktion
+zoom_func () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -r 30 \
+  -i "${infile}" \
+  -filter_complex \
+  "${1}" \
+  -y -shortest \
+  -c:v libx264 -crf 18 -profile:v high \
+  -r 30 -pix_fmt yuv420p \
+  -movflags +faststart -f mp4 \
+  "${outfile:=${outfile_default}}"
+}
+
+# Überprüfen Sie Zoom und Position
+case "${zoom}" in
+    in)
+	case "${position}" in
+          tl) zoom_func "${zi_top_left}" "${infile}";;
+          tc) zoom_func "${zi_top_center}" "${infile}";;
+          c) zoom_func "${zi_center}" "${infile}";;
+          tr) zoom_func "${zi_top_right}" "${infile}";;
+	  *) help;;
+	esac
+	;;
+    out)
+	case "${position}" in
+          tl) zoom_func "${zo_top_left}" "${infile}";;
+          tc) zoom_func "${zo_top_center}" "${infile}";;
+          c) zoom_func "${zo_center}" "${infile}";;
+          tr) zoom_func "${zo_top_right}" "${infile}";;
+          bl) zoom_func "${zo_bottom_left}" "${infile}";;
+          br) zoom_func "${zo_bottom_right}" "${infile}";;
+	  *) help;;
+	esac
+	;;
+    *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
+esac

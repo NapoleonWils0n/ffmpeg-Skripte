@@ -1,0 +1,1502 @@
+#+STARTUP: content
+#+OPTIONS: num:nil author:nil
+* ffmpeg-Skripte
+
+Eine Sammlung von ffmpeg-Shell-Skripten für grundlegende Bearbeitungsaufgaben
+
+[[https://github.com/NapoleonWils0n/ffmpeg-scripts][ffmpeg-Skripte englische Version]]
+
+ffmpeg-Skripte, die mit Google Translate aus dem Englischen ins Deutsche übersetzt wurden,
+Wenn es irgendwelche Fehler in der Übersetzung gibt, melden Sie sich bitte
+
+Ich war mir nicht sicher, ob die Skriptnamen Umlaute enthalten sollten,
+oder wenn Sie ein englisches oder US-Layout im Terminal verwenden, lassen Sie es mich wissen
+
++ [[#audio-stille][audio-stille]]
++ [[#kombinieren-clips][kombinieren-clips]]
++ [[#clip-zeit][clip-zeit]]
++ [[#korrekter-clip][korrekter-clip]]
++ [[#clips-überblenden][clips-überblenden]]
++ [[#ebu-meter][ebu-meter]]
++ [[#rahmen-extrahieren][rahmen-extrahieren]]
++ [[#rahmen-extrahieren][überblenden-clip]]
++ [[#verblassen-normalisieren][verblassen-normalisieren]]
++ [[#titel-verblassen][titel-verblassen]]
++ [[#img2video][img2video]]
++ [[#lautnorm][lautnorm]]
++ [[#normalisieren][normalisieren]]
++ [[#uberzug-clip][uberzug-clip]]
++ [[#uberzug-pip][uberzug-pip]]
++ [[#pfanne-scan][pfanne-scan]]
++ [[#szene-geschnitten][szene-geschnitten]]
++ [[#szene-erkennen][szene-erkennen]]
++ [[#szene-bilder][szene-bilder]]
++ [[#scene-zeit][scene-zeit]]
++ [[#untertitel-hinzufügen][untertitel-hinzufügen]]
++ [[#bereiche][bereiche]]
++ [[#fliese-miniaturansichten][fliese-miniaturansichten]]
++ [[#trimmen-clip][trimmen-clip]]
++ [[#vid2gif][vid2gif]]
++ [[#wellenform][wellenform]]
++ [[#webp][webp]]
++ [[#xfade][xfade]]
++ [[#zoompan][zoompan]]
+
+** Skripte installieren
+
+[[https://youtu.be/UHshlQvdwcQ][ffmpeg-Skripte installieren YouTube]]
+
+*** Erstellen Sie ein bin-Verzeichnis
+
+Erstellen Sie ein bin-Verzeichnis in Ihrem Home-Verzeichnis, um die Skripte hinzuzufügen
+
+#+BEGIN_SRC sh
+mkdir -p ~/bin
+#+END_SRC
+
+Wenn Sie bash verwenden, fügen Sie den folgenden Code zu Ihrer ~/.bashrc hinzu
+
+#+BEGIN_SRC sh
+if [ -d "$HOME/bin" ]; then
+   PATH="$HOME/bin:$PATH"
+fi
+#+END_SRC
+
+Wenn Sie zsh verwenden, fügen Sie Ihrer ~/.zshenv-Datei den folgenden Code hinzu
+
+#+begin_src sh
+typeset -U PATH path
+path=("$HOME/bin" "$path[@]")
+export PATH
+#+end_src
+
++ beziehen Sie Ihre ~/.bashrc, wenn Sie die Bash-Shell verwenden
+
+#+BEGIN_SRC sh
+source ~/.bashrc
+#+END_SRC
+
++ beziehen Sie Ihre ~/.zshenv, wenn Sie die zsh-Shell verwenden
+
+#+BEGIN_SRC sh
+source ~/.zshenv
+#+END_SRC
+
+*** Klonen Sie das Git-Repository
+
+Erstellen Sie ein Git-Verzeichnis in Ihrem Home-Ordner, um die Skripte herunterzuladen,
+oder verwenden Sie einen anderen Speicherort in Ihrem Dateisystem
+
+#+BEGIN_SRC sh
+mkdir -p ~/git
+#+END_SRC
+
+Verzeichnis im Git-Verzeichnis wechseln
+
+#+BEGIN_SRC sh
+cd ~/git
+#+END_SRC
+
+Klonen Sie das Git-Repository
+
+#+BEGIN_SRC sh
+git clone https://github.com/NapoleonWils0n/ffmpeg-scripts.git
+#+END_SRC
+
+Aktualisieren Sie die Skripte mit Git Pull
+
+*** Skripte in das bin-Verzeichnis kopieren oder symbolisch verlinken
+
+Sie können die Skripte jetzt entweder in das Verzeichnis ~/bin in Ihrem Home kopieren,
+oder erstellen Sie symbolische Links von den Skripten im Verzeichnis ~/git/ffmpeg-scripts zum Verzeichnis ~/bin
+
+Erstellen eines symbolischen Links
+
+#+BEGIN_SRC sh
+ln -s path/to/source path/to/destination
+#+END_SRC
+
+Beispiel
+
+#+BEGIN_SRC sh
+ln -s ~/git/ffmpeg-scripts/trim-clip ~/bin
+#+END_SRC
+
+*** ffmpeg installieren
+
+**** Linux ffmpeg installieren
+
+installiere ffmpeg auf debian oder ubuntu,
+Informationen zu anderen Linux-Distributionen finden Sie in der Dokumentation Ihres Paketmanagers
+
+#+BEGIN_SRC sh
+sudo apt install ffmpeg
+#+END_SRC
+
+**** mac ffmpeg installieren
+
+Öffnen Sie ein Terminal und führen Sie die folgenden Befehle aus, um die xcode-Befehlszeilentools Homebrew und ffmpeg zu installieren
+
++ Xcode-Befehlszeilentools installieren
+
+#+BEGIN_SRC sh
+xcode-select --install
+#+END_SRC
+
++ Homebrew-Installation
+  
+#+BEGIN_SRC sh
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+#+END_SRC
+
++ ffmpeg-Installation mit libfdk_aac
+  
+#+BEGIN_SRC sh
+brew tap homebrew-ffmpeg/ffmpeg
+brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-fdk-aac --HEAD
+#+END_SRC
+
++ ffmpeg-Upgrade
+
+#+BEGIN_SRC sh
+brew update && brew upgrade homebrew-ffmpeg/ffmpeg/ffmpeg --fetch-HEAD
+#+END_SRC
+ 
+**** freebsd ffmpeg installieren
+
+Wechseln Sie zu root und installieren Sie das ffmpeg-Paket
+
+#+BEGIN_SRC sh
+pkg install ffmpeg
+#+END_SRC
+
+Sie können ffmpeg auch von Ports installieren,
+oder verwenden Sie poudriere, um das ffmpeg-Paket zu erstellen
+
+Beachten Sie, dass das Ebumeter-Skript ffplay verwendet, das nicht mit dem ffmpeg-Paket installiert wird.
+Sie müssen also ffmpeg mit der sdl-Option enable from ports oder mit poudriere erstellen
+
+Wenn Sie das libfdk_aac-Audio verwenden möchten, sollten Sie diese Option auch beim Erstellen aktivieren
+den ffmpeg-Port und bauen Sie das lame-Paket für die MP3-Unterstützung
+
+**** windows ffmpeg installieren
+
+Installieren Sie das Windows-Subsystem für Linux und installieren Sie dann eine Linux-Distribution wie Ubuntu.
+Folgen Sie dann den Linux-Installationsanweisungen
+ 
+** audio-stille
+:PROPERTIES:
+:CUSTOM_ID: audio-stille
+:END:
+
+audio-stille stummes Audio zu einem Videoclip hinzufügen
+
+Wenn das Video keine Audiospur hat, kopiert das Skript die Videospur,
+und fügt eine stumme Audiospur hinzu, die der Dauer des Videos entspricht, und erstellt einen neuen Videoclip
+
+Wenn das Video eine Video- und eine Audiospur hat, kopiert das Skript nur die Videospur,
+und fügt eine stumme Audiospur hinzu, die der Dauer des Videos entspricht, und erstellt einen neuen Videoclip.
+
+[[https://youtu.be/OB8RvyenCLY][audio-stille youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+audio-stille -i eingang.(mp4|mkv|mov|m4v) -c (mono|stereo) -r (44100|48000) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+audio-stille -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Audio-stille fügt einem Videoclip stummen Ton hinzu
+
+audio-stille -i eingang.(mp4|mkv|mov|m4v) -c (mono|stereo) -r (44100|48000) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-c (mono|stereo) : optionales Argument # wenn die Option nicht angegeben wird, ist die Standardeinstellung mono
+-r (44100|48000) : optionales Argument # wenn Option nicht angegeben, standardmäßig 44100
+-o ausgang.mp4   : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Stille-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** audio-stille Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um die Standardausgabe zu verwenden.
+das ist input-name-silence-date-time
+
+audio-stille stapelverarbeitung ohne Angabe der Optionen -c und -r
+unter Verwendung der Standardwerte von -c mono und -r 44100
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'audio-stille -i "${0}"'     
+"{}" \;
+#+END_SRC
+
+audio-stille Batch-Prozess und überschreiben die Standardwerte
+mit den Optionen -c und -r
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'audio-stille -i "${0}" -c stereo -r 48000'     
+"{}" \;
+#+END_SRC
+
+** clip-zeit
+:PROPERTIES:
+:CUSTOM_ID: clip-zeit
+:END:
+
+Konvertieren Sie Zeitstempel in Start und Dauer
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+clip-zeit -i eingang -o ausgang
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+clip-zeit -h
+#+end_src
+
+** kombinieren-clips
+:PROPERTIES:
+:CUSTOM_ID: kombinieren-clips
+:END:
+
+Kombinieren Sie eine Bild- oder Videodatei mit einem Audioclip
+
+[[https://youtu.be/BUrmbakPQY8][kombinieren-clips youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+kombinieren-clips -i eingang.(mp4|mkv|mov|m4v|png|jpg) -a audio.(m4a|aac|wav|mp3) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+kombinieren-clips -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Kombinieren Sie eine Bild- oder Videodatei mit einem Audioclip
+
+kombinieren-clips -i eingang.(mp4|mkv|mov|m4v|png|jpg) -a audio.(m4a|aac|wav|mp3) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v|png|jpg)
+-a audio.(m4a|aac|wav|mp3)
+-o ausgang.mp4 : Optionales Argument
+# Wenn die Option nicht angegeben wird, wird standardmäßig Eingabename-kombiniertes Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** kombinieren-clips Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den standardmäßigen Namen der Ausgangsdatei zu verwenden.
+input-name-combined-date-time
+
++ Kombinieren Sie Video- und Audiodateien stapelweise zu Videoclips
+
+Die Video- und Audiodateien, die Sie kombinieren möchten, müssen denselben Namen haben
+
+Zum Beispiel
+
+#+BEGIN_EXAMPLE
+file1.mp4
+file1.wav
+file2.mp4
+file2.wav
+#+END_EXAMPLE
+
+Durch Ausführen des folgenden Codes wird kombiniert
+file1.mp4 mit file1.wav und
+file2.mp4 mit file2.wav
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'kombinieren-clips -i "${0}" -a "${0%.*}.wav"' \
+"{}" \;
+#+END_SRC
+
++ Kombinieren Sie Bilder und Audiodateien stapelweise zu Videoclips
+
+Die Bild- und Audiodateien, die Sie kombinieren möchten, müssen denselben Namen haben
+
+Zum Beispiel
+
+#+BEGIN_EXAMPLE
+file1.png
+file1.wav
+file2.png
+file2.wav
+#+END_EXAMPLE
+
+Durch Ausführen des folgenden Codes wird kombiniert
+file1.png mit file1.wav und
+file2.png mit file2.wav
+
+#+BEGIN_SRC sh
+find -s . -type f -name "*.png" -exec sh -c \
+'kombinieren-clips -i "${0}" -a "${0%.*}.wav"' \
+"{}" \;
+#+END_SRC
+
+** korrekter-clip
+:PROPERTIES:
+:CUSTOM_ID: korrekter-clip
+:END:
+
++ Kurvencode basierend auf:
+[[https://video.stackexchange.com/questions/16352/converting-gimp-curves-files-to-photoshop-acv-for-ffmpeg/20005#20005][Konvertieren von Gimp-Kurvendateien für ffmpeg]]
+
+Korrigieren Sie einen Videoclip, indem Sie eine Gimp-Kurve verwenden, die in einen ffmpeg-Kurvenfilterbefehl umgewandelt wurde.
+zum Anpassen der Pegel und des Weißabgleichs
+
++ erfordert eine Kurvendatei, die mit dem folgenden Skript erstellt wurde
+[[https://github.com/NapoleonWils0n/curve2ffmpeg][curve2ffmpeg]]
+
+[[https://youtu.be/wQi3Y-6vWYc][korrekter-clip youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+korrekter-clip -i eingang.(mp4|mkv|mov|m4v) -c kurve.txt -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+korrekter-clip -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Korrigieren Sie einen Videoclip mit einer Gimp-Kurve
+
+# erfordert eine Kurvendatei, die mit dem folgenden Skript erstellt wurde
+# https://github.com/NapoleonWils0n/curve2ffmpeg
+
+korrekter-clip -i eingang.(mp4|mkv|mov|m4v) -c kurve.txt -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-c kurve.txt
+-o ausgang.mp4 : Optionales Argument
+# Wenn die Option nicht angegeben wird, wird standardmäßig Eingabename-korrigiertes-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** korrekter-clip Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+Eingabename-korrigiertes-Datum-Uhrzeit
+
+Die Video- und Gimp-Kurven-Textdateien, die Sie kombinieren möchten, müssen denselben Namen haben
+
+Zum Beispiel
+
+#+BEGIN_EXAMPLE
+file1.mp4
+file1.txt
+file2.mp4
+file2.txt
+#+END_EXAMPLE
+
+Durch Ausführen des folgenden Codes wird dies behoben
+file1.mp4 mit file1.txt Gimp-Kurvendatei und
+file2.mp4 mit file2.txt Gimp-Kurvendatei
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'korrekter-clip -i "${0}" -c "${0%.*}.txt"' \
+"{}" \;
+#+END_SRC
+
+** clips-überblenden
+:PROPERTIES:
+:CUSTOM_ID: clips-überblenden
+:END:
+
+Überblenden Sie 2 Videoclips mit einer Überblendung von 1 oder 2 Sekunden
+Die Videos müssen die gleichen Codecs, Größe und Bildrate haben
+
+[[https://youtu.be/0HnUNVreMVk][clips-überblenden youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+clips-uberblenden -a clip1.(mp4|mkv|mov|m4v) -b clip2.(mp4|mkv|mov|m4v) -d (1|2) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+clips-uberblenden -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Clips überblenden
+
+clips-uberblenden -a clip1.(mp4|mkv|mov|m4v) -b clip2.(mp4|mkv|mov|m4v) -d (1|2) -o ausgang.mp4
+-a clip1.(mp4|mkv|mov|m4v) : Erster clip
+-b clip2.(mp4|mkv|mov|m4v) : Zweiter clip
+-d (1|2)                   : Dauer der Überblendung: optionales Argument
+# Wenn die Option nicht angegeben wird, ist die Voreinstellung 1 Sekunde
+-o ausgang.mp4             : Dauer der Überblendung: optionales Argument
+# Wenn die Option nicht angegeben wird, ist die Voreinstellung 1 Sekunde
+#+END_EXAMPLE
+
+** ebu-meter
+:PROPERTIES:
+:CUSTOM_ID: ebu-meter
+:END:
+
+ffplay ebu meter
+
+[[https://youtu.be/8qrT9TfKwUI][ebu-meter youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+ebu-meter -i eingang.(mp4|mkv|mov|m4v|webm|aac|m4a|wav|mp3) -t (00)
+#+END_SRC
+
+-t = luf target, eg 16
+
++ Skript hilfe
+
+#+begin_src sh
+ebu-meter -h
+#+end_src
+
+** rahmen-extrahieren
+:PROPERTIES:
+:CUSTOM_ID: rahmen-extrahieren
+:END:
+
+Extrahieren Sie einen Frame aus einem Video und speichern Sie ihn als PNG-Bild
+
+[[https://trac.ffmpeg.org/wiki/Seeking][ffmpeg wiki seeking]]
+
+Beachten Sie, dass Sie zwei verschiedene Formate für Zeiteinheiten verwenden können: Sexagesimal (HOURS:MM:SS.MILLISECONDS, wie in 01:23:45.678) oder in Sekunden.
+Wenn ein Bruch verwendet wird, z. B. 02:30.05, wird dies als "5 Hundertstelsekunden" interpretiert, nicht als Frame 5.
+Zum Beispiel wäre 02:30,5 2 Minuten, 30 Sekunden und eine halbe Sekunde, was der Verwendung von 150,5 in Sekunden entspricht.
+
+[[https://youtu.be/cOk0i384crE][rahmen-extrahieren youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+rahmen-extrahieren -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -o ausgang.png
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+rahmen-extrahieren -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Extrahieren Sie einen Frame aus einem Video als PNG-Datei
+https://trac.ffmpeg.org/wiki/Seeking
+
+rahmen-extrahieren -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -o ausgang.png
+-i eingang.(mp4|mov|mkv|m4v)
+-s 00:00:00.000    : optionales Argument #, wenn die Option nicht angegeben wird 00:00:00
+-o ausgang.png     : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Frame-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** rahmen-extrahieren Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+Eingabename-Frame-Datum-Uhrzeit
+
++ Rahmen mit der Standardoption 00:00:00 extrahieren
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'rahmen-extrahieren -i "${0}"' \
+"{}" \;
+#+END_SRC
+
++ Einzelbild bei 30 Sekunden in das Video extrahieren
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'rahmen-extrahieren -i "${0}" -s 00:00:30' \
+"{}" \;
+#+END_SRC
+
+** überblenden-clip
+:PROPERTIES:
+:CUSTOM_ID: überblenden-clip
+:END:
+
+fade video and audio in and out
+
+[[https://youtu.be/ea3aCK9htsE][überblenden-clip youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+uberblenden-clip -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+uberblenden-clip -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Video und Audio ein- und ausblenden
+
+uberblenden-clip -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-d (0.[0-9]|1) : optionales Argument # wenn die Option nicht angegeben wird, ist der Standardwert 0,5
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Fade-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** uberblenden-clip Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+input-name-fade-date-time
+
++ uberblenden-clip mit Standardoption von 0,5
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'uberblenden-clip -i "${0}"' \
+"{}" \;
+#+END_SRC
+
++ uberblenden-clip und überschreiben Sie die Standardoption von 0,5 mit -d 1 für ein 1-Sekunden-Fade
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'uberblenden-clip -i "${0}" -d 1' \
+"{}" \;
+#+END_SRC
+
+** verblassen-normalisieren
+:PROPERTIES:
+:CUSTOM_ID: verblassen-normalisieren
+:END:
+
+Video und Audio ein- und ausblenden und normalisieren
+
+[[https://youtu.be/jufGDRAn8Ec][verblassen-normalisieren youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+verblassen-normalisieren -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+verblassen-normalisieren -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Video verblassen und Audiopegel normalisieren
+
+verblassen-normalisieren -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -o ausgang.mp4
+
+-d (0.[0-9]|1) : optionales Argument # wenn die Option nicht angegeben wird, ist der Standardwert 0,5
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht angegeben ist,
+wird standardmäßig Eingabename-normalisiertes-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** verblassen-normalisieren batch process
+
+Batch process files in the current working directory
+  
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'verblassen-normalisieren -i "${0}" -d 0.5' \
+"{}" \;
+#+END_SRC
+
+** titel-verblassen
+:PROPERTIES:
+:CUSTOM_ID: titel-verblassen
+:END:
+
+Video und Audio ein- und ausblenden,
+Normalisieren Sie das Audio und erstellen Sie ein Video mit einem unteren Dritteltitel aus dem Dateinamen
+
+[[https://youtu.be/RDnhaX_d9B0][titel-verblassen youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+titel-verblassen -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -s 000 -e 000 -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+titel-verblassen -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Video ausblenden, Audio Titel aus Videodateinamen hinzufügen
+
+titel-verblassen -i eingang.(mp4|mkv|mov|m4v) -d (0.[0-9]|1) -s 000 -e 000 -o ausgang.mp4
+
+-i eingang.(mp4|mkv|mov|m4v)
+-d (0.[0-9]|1) : von 0,1 bis 0,9 oder 1 : optionales Argument # wenn die Option nicht angegeben wird, ist standardmäßig 0,5
+-s 000         : von 000 bis 999
+-e 000         : von 000 bis 999
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Titel-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** titel-verblassen Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'titel-verblassen -i "${0}" -d 0.5 -s 10 -e 20' \
+"{}" \;
+#+END_SRC
+
+** img2video
+:PROPERTIES:
+:CUSTOM_ID: img2video
+:END:
+
+Konvertieren Sie ein Bild in eine Videodatei
+
+[[https://youtu.be/x_dVVvhKbJE][img2video youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+img2video -i eingang.(png|jpg|jpeg) -d (000) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+img2video -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Bild zum Video
+
+img2video -i eingang.(png|jpg|jpeg) -d (000) -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-d (000)       : Dauer
+-o ausgang.mp4 : optionales Argument
+# Wenn die Option nicht bereitgestellt wird, wird standardmäßig Eingabename-Video-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** img2video Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+Eingabe-Name-Video-Datum-Uhrzeit
+
+Batch-Konvertierung von PNG im aktuellen Verzeichnis in Videoclips mit einer Dauer von 30 Sekunden
+
+#+BEGIN_SRC sh
+find . -type f -name "*.png" -exec sh -c \
+'img2video -i "${0}" -d 30' \
+"{}" \;
+#+END_SRC
+
+** lautnorm
+:PROPERTIES:
+:CUSTOM_ID: lautnorm
+:END:
+
+ffmpeg lautnorm
+
+[[https://youtu.be/8fQpbBCVCRc][lautnorm youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+lautnorm -i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+lautnorm -h
+#+end_src
+
+** normalisieren
+:PROPERTIES:
+:CUSTOM_ID: normalisieren
+:END:
+
+Audiopegel normalisieren
+
+[[https://youtu.be/q_UjwuJmya4][normalisieren youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+normalisieren -i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3) -o ausgang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+normalisieren -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Audiopegel normalisieren
+
+normalisieren -i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3) -o ausgang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)
+-i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)
+-o ausgang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3) : optionales Argument
+# Wenn die Option nicht bereitgestellt wird, wird standardmäßig Eingabename-normalisierte-Datum-Uhrzeit-Erweiterung verwendet
+#+END_EXAMPLE
+
+*** normalisieren Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+input-name-normalize-date-time
+
+Batch-Normalisierung von mp4-Videos im aktuellen Verzeichnis
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'normalisieren -i "${0}"' \
+"{}" \;
+#+END_SRC
+
+** uberzug-clip
+:PROPERTIES:
+:CUSTOM_ID: uberzug-clip
+:END:
+
+einen Videoclip über einen anderen Videoclip legen
+
+[[https://youtu.be/tfzKo9jy2sI][uberzug-clip youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+uberzug-clip -i eingang.(mp4|mkv|mov|m4v) -v eingang.(mp4|mkv|mov|m4v) -p [0-999] -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+uberzug-clip -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# einen Videoclip über einen anderen Videoclip legen
+
+uberzug-clip -i eingang.(mp4|mkv|mov|m4v) -v eingang.(mp4|mkv|mov|m4v) -p [0-999] -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v) : unteres Video
+-v eingang.(mp4|mkv|mov|m4v) : Video überlagern
+-p [0-999]                   : Zeit, um das Video zu überlagern
+-o ausgang.mp4               : optionales Argument # Wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Overlay-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+** uberzug-pip
+:PROPERTIES:
+:CUSTOM_ID: uberzug-pip
+:END:
+
+create a picture in picture
+
+[[https://youtu.be/bufAVPT3Cvk][uberzug-pip youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+uberzug-pip -i eingang.(mp4|mkv|mov|m4v) -v eingang.(mp4|mkv|mov|m4v) -p [0-999]
+-m [00] -x (tl|tr|bl|br) -w [000] -f (0.1-9|1) -b [00] -c colour -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+uberzug-pip -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Erstellen Sie ein Bild-in-Bild-Video
+
+uberzug-pip -i eingang.(mp4|mkv|mov|m4v) -v eingang.(mp4|mkv|mov|m4v) -p [0-999]
+-m [00] -x (tl|tr|bl|br) -w [000] -f (0.1-9|1) -b [00] -c colour -o ausgang.mp4
+
+-i eingang.(mp4|mkv|mov|m4v) : unteres Video
+-v eingang.(mp4|mkv|mov|m4v) : Video überlagern
+-p [0-999]                   : Zeit, um das Video zu überlagern
+-m [00]                      : Rand ist standardmäßig 0
+-x (tl|tr|bl|br)             : Pip-Position - standardmäßig tr
+-w [000]                     : width - standardmäßig 1/4 der Videogröße
+-f (0.1-9|1)                 : Fade von 0,1 auf 1 - Standardeinstellung 0,2
+-b [00]                      : Grenze
+-c colour                    : Farbe
+-o ausgang.mp4               : Optionales Argument # Wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Pip-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+** pfanne-scan
+:PROPERTIES:
+:CUSTOM_ID: pfanne-scan
+:END:
+
+Bild schwenken
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+pfanne-scan -i eingang.(png|jpg|jpeg) -d (000) -p (l|r|u|d) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+pfanne-scan -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Schwenken Sie über ein Bild
+
+pfanne-scan -i eingang.(png|jpg|jpeg) -d (000) -p (l|r|u|d) -o ausgang.mp4
+-i = eingang.(png|jpg|jpeg)
+-d = dauer : aus 1-999
+-p = position : left, right, up, down
+-o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Pan-Datum-Uhrzeit
+#+END_EXAMPLE
+
+** szene-geschnitten
+:PROPERTIES:
+:CUSTOM_ID: szene-geschnitten
+:END:
+
+Szene-geschnitten nimmt eine geschnittene Datei und ein Video und schneidet das Video in Clips
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+szene-geschnitten -i eingang -c datei schneiden
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+szene-geschnitten -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+szene-geschnitten -i eingang -c datei schneiden
+
+-i eingang.(mp4|mov|mkv|m4v)
+-c datei schneiden
+#+END_EXAMPLE
+
+ffmpeg erfordert einen Startpunkt und eine Dauer, keinen Endpunkt
+
+Schnittdatei - Stunden, Minuten, Sekunden
+In diesem Beispiel erstellen wir Clips von 2 bis 30 Sekunden
+
+ein 30-Sekunden-Clip, der bei 00:00:00 beginnt
+und ein weiterer 30-Sekunden-Clip, der bei 00:01:00 beginnt
+
+#+begin_example
+00:00:00,00:00:30
+00:01:00,00:00:30
+#+end_example
+
+Schnittdatei - Sekunden
+In diesem Beispiel erstellen wir Clips von 2 bis 30 Sekunden
+
+ein 30-Sekunden-Clip, der bei 0 beginnt
+und ein weiterer 30-Sekunden-Clip, der bei 60 beginnt
+
+#+begin_example
+0,30
+60,30
+#+end_example
+
+** szene-erkennen
+:PROPERTIES:
+:CUSTOM_ID: szene-erkennen
+:END:
+
+Szenenerkennung nimmt eine Videodatei und einen Schwellwert für die Szenenerkennung von 0,1 bis 0,9
+Sie können auch die Optionen -s und -e verwenden, um einen Bereich für die Szenenerkennung festzulegen.
+Wenn Sie keinen Bereich angeben, wird die Szenenerkennung für das gesamte Video durchgeführt
+
+[[https://www.youtube.com/watch?v=nOeaFEHuFyM][ffmpeg-Szenenerkennung - Videos automatisch in separate Szenen schneiden]]
+
+[[https://youtu.be/SqvDCpWad9M][ffmpeg Szenenerkennung - Version 2 - einen Bereich im Video angeben und in einzelne Szenen schneiden]]
+
+[[https://youtu.be/GZgE6fYd_wg][ffmpeg-Szenenerkennung - Version 3 - Sexagesimalformat - Stunden, Minuten, Sekunden]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+szene-erkennen -s 00:00:00 -i eingang -e 00:00:00 -t (0.1 - 0.9) -f sec -o ausgang
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+szene-erkennen -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+szene-erkennen -s 00:00:00 -i eingang -e 00:00:00 -t (0.1 - 0.9) -f sec -o ausgang
+
+-s 00:00:00 : startzeit
+-i eingang.(mp4|mov|mkv|m4v)
+-e 00:00:00 : endzeit
+-t (0.1 - 0.9) # schwelle
+-f sec # ausgabe in sekunden
+-o ausgang.txt
+#+END_EXAMPLE
+
+** szene-bilder
+:PROPERTIES:
+:CUSTOM_ID: szene-bilder
+:END:
+
+szene-bilder nimmt eine Videodatei und eine geschnittene Datei,
+erstellt mit dem Scene-Detect-Skript entweder im Sekunden- oder Sexagesimalformat
+und erstellt dann ein Bild für jeden Schnittpunkt
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+szene-bilder -i eingang -c datei schneiden
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+szene-bilder -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+szene-bilder -i eingang -c datei schneiden
+
+-i eingang.(mp4|mov|mkv|m4v)
+-c datei schneiden
+#+END_EXAMPLE
+
+** szene-zeit
+:PROPERTIES:
+:CUSTOM_ID: szene-zeit
+:END:
+
+szene-zeit nimmt eine geschnittene Datei,
+erstellt mit dem Scene-Detect-Skript entweder im Sekunden- oder Sexagesimalformat
+
+#+begin_example
+0:00:00
+0:00:11.875000
+0:00:15.750000
+#+end_example
+
+Das Skript erstellt Clips, indem es den Schnittpunkt vom Startpunkt subtrahiert
+und konvertiert das Sexagesimalformat und erstellt dann eine Datei mit dem Startpunkt
+ein Komma und dann die Dauer des Clips
+
+Die Ausgabe des Szenenzeit-Skripts wird mit dem Szenenschnitt-Skript verwendet, um die Clips zu erstellen
+
+#+begin_example
+0,11.875
+11.875,3.875
+#+end_example
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+szene-zeit -i eingang -o ausgang
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+szene-zeit -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+szene-zeit -i eingang -o ausgang
+
+-i eingang
+-o ausgang
+#+END_EXAMPLE
+
+** untertitel-hinzufügen
+:PROPERTIES:
+:CUSTOM_ID: untertitel-hinzufügen
+:END:
+
+Untertitel zu einer Videodatei hinzufügen
+
+[[https://youtu.be/p6BHhO5VfEg][untertitel-hinzufügen youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+untertitel-hinzufugen -i eingang.(mp4|mkv|mov|m4v) -s untertitel.srt -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+untertitel-hinzufugen -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Untertitel zu einem Video hinzufügen
+
+untertitel-hinzufugen -i eingang.(mp4|mkv|mov|m4v) -s untertitel.srt -o ausgang.mp4
+-i eingang.(mp4|mkv|mov|m4v)
+-s untertitel.srt
+-o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Subs-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** untertitel-hinzufügen Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+input-name-subs-date-time
+
+Die Video- und Untertiteldateien, die Sie kombinieren möchten, müssen denselben Namen haben
+
+Zum Beispiel
+
+#+BEGIN_EXAMPLE
+file1.mp4
+file1.srt
+file2.mp4
+file2.srt
+#+END_EXAMPLE
+
+Durch Ausführen des folgenden Codes wird das subtitle-add-Skript ausgeführt und kombiniert
+file1.mp4 mit file1.srt und
+file2.mp4 mit file2.srt
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'untertitel-hinzufugen -i "${0}" -s "${0%.*}.srt"' \
+"{}" \;
+#+END_SRC
+
+** bereiche
+:PROPERTIES:
+:CUSTOM_ID: bereiche
+:END:
+
+[[https://www.youtube.com/watch?v=K-ifmNiyFRU][ffplay-Videoskope youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+bereiche -i eingang = histogramm
+bereiche -o eingang = rgb überlagern
+bereiche -p eingang = rgb parade
+bereiche -s eingang = rgb überlagern and parade
+bereiche -w eingang = wellenform
+bereiche -v eingang = Vektorskop
+bereiche -h = hilfe
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+bereiche -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# ffplay-Videoskope
+
+bereiche -i eingang = histogramm
+bereiche -o eingang = rgb überlagern
+bereiche -p eingang = rgb parade
+bereiche -s eingang = rgb überlagern and parade
+bereiche -w eingang = wellenform
+bereiche -v eingang = Vektorskop
+bereiche -h = hilfe
+#+END_EXAMPLE
+
+** fliese-miniaturansichten
+:PROPERTIES:
+:CUSTOM_ID: fliese-miniaturansichten
+:END:
+
+Erstellen Sie Miniaturansichten aus einem Video und kacheln Sie sie in ein Bild
+
+[[https://www.youtube.com/watch?v=gFFvKU9nvZE][fliese-miniaturansichten youtube]]
+
+[[https://ffmpeg.org/ffmpeg-utils.html#color-syntax][ffmpeg-Farbsyntax]]
+
+[[https://trac.ffmpeg.org/wiki/Seeking][ffmpeg wiki suchen]]
+
+Beachten Sie, dass Sie zwei verschiedene Formate für Zeiteinheiten verwenden können: Sexagesimal (HOURS:MM:SS.MILLISECONDS, wie in 01:23:45.678) oder in Sekunden.
+Wenn ein Bruch verwendet wird, z. B. 02:30.05, wird dies als "5 Hundertstelsekunden" interpretiert, nicht als Frame 5.
+Zum Beispiel wäre 02:30,5 2 Minuten, 30 Sekunden und eine halbe Sekunde, was der Verwendung von 150,5 in Sekunden entspricht.
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+fliese-miniaturansichten -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -o ausgang.png
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+fliese-miniaturansichten -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Erstellen Sie ein Bild mit Miniaturansichten aus einem Video
+
+fliese-miniaturansichten -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -o ausgang.png
+-i eingang.(mp4|mkv|mov|m4v|webm)
+-s Suchen Sie in der Videodatei            : Standard 00:00:05
+-w Thumbnail-Breite                        : 160
+-t Fliese layout format breite x höhe      : Standard 4x3
+-p Polsterung zwischen Bildern             : Standard 7
+-m Rand                                    : Standard 2
+-c Farbe = https://ffmpeg.org/ffmpeg-utils.html#color-syntax : Standard black
+-o ausgang.png :optionales Argument
+# Wenn die Option nicht bereitgestellt wird, wird standardmäßig Eingabename-Kachel-Datum-Uhrzeit.png verwendet
+#+END_EXAMPLE
+
+Wenn das gekachelte Bild nur ein Miniaturbild aus dem Video erstellt und der Rest des Bildes schwarz ist,
+Dann könnte das Problem die Bildrate des Videos sein
+
+Sie können die Bildrate des Videos mit ffmpeg überprüfen
+
+#+BEGIN_SRC sh
+ffmpeg -i eingang.mp4
+#+END_SRC
+
+Wenn die Framerate 29,97 statt 30 beträgt, können Sie ffmpeg verwenden, um die Framerate zu ändern und das Problem zu beheben
+
+#+BEGIN_SRC sh
+ffmpeg -i eingang.mp4 -vf fps=fps=30 ausgang.mp4
+#+END_SRC
+
+*** fliese-miniaturansichten Batch-Prozess
+
+Batch-Verarbeitung von Videos und Erstellen von Miniaturansichten aus den Videos und Kacheln in einem Bild
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'fliese-miniaturansichten -i "${0}" -s 00:00:10 -w 200 -t 4x4 -p 7 -m 2 -c white' \
+"{}" \;
+#+END_SRC
+
+** trimmen-clip
+:PROPERTIES:
+:CUSTOM_ID: trimmen-clip
+:END:
+
+Trimmen von Videoclips und Audioclips
+
+[[https://trac.ffmpeg.org/wiki/Seeking][ffmpeg wiki suchen]]
+
+Beachten Sie, dass Sie zwei verschiedene Formate für Zeiteinheiten verwenden können: Sexagesimal (HOURS:MM:SS.MILLISECONDS, wie in 01:23:45.678) oder in Sekunden.
+Wenn ein Bruch verwendet wird, z. B. 02:30.05, wird dies als "5 Hundertstelsekunden" interpretiert, nicht als Frame 5.
+Zum Beispiel wäre 02:30,5 2 Minuten, 30 Sekunden und eine halbe Sekunde, was der Verwendung von 150,5 in Sekunden entspricht.
+
+[[https://youtu.be/LoKloi5N5p0][trimmen-clip youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+trimmen-clip -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+trimmen-clip -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Trimmen Sie Video- oder Audioclips mit Millisekunden-Genauigkeit
+https://trac.ffmpeg.org/wiki/Seeking
+
+trimmen-clip -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+-s 00:00:00.000 : Startzeit
+-i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3)
+-t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
+-o ausgang.(mp4|aac|mp3|wav) : optionales Argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig der Eingabename-getrimmtes-Datum-Uhrzeit.(mp4|wav) verwendet
+#+END_EXAMPLE
+
+*** trimmen-clip Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+input-name-trimmed-date-time
+
+Alle mp4-Dateien im aktuellen Verzeichnis stapelweise trimmen,
+von 00:00:00 bis 00:00:30
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'trimmen-clip -s 00:00:00 -i "${0}" -t 00:00:30' \
+"{}" \;
+#+END_SRC
+
+** vid2gif
+:PROPERTIES:
+:CUSTOM_ID: vid2gif
+:END:
+
+Erstellen Sie eine GIF-Animation aus einem Video
+
+[[https://www.youtube.com/watch?v=V59q5DC9y6A][vid2gif youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+vid2gif -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v) -t 00:00:00.000 -f [00] -w [0000] -o ausgang.gif
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+vid2gif -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Konvertieren Sie ein Video in eine GIF-Animation
+
+vid2gif -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v) -t 00:00:00.000 -f [00] -w [0000] -o ausgang.gif
+-s 00:00:00.000 : Startzeit
+-i eingang.(mp4|mov|mkv|m4v)
+-t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
+-f [00]         : Bildrate
+-w [0000]       : Breite
+-o ausgang.gif  : optionales Argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig input-name-gif-date-time.gif verwendet
+#+END_EXAMPLE
+
+** wellenform
+:PROPERTIES:
+:CUSTOM_ID: wellenform
+:END:
+
+Erstellen Sie eine Wellenform aus einer Audio- oder Videodatei und speichern Sie sie als PNG
+
+[[https://youtu.be/OBnYLVahUaA][wellenform youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+wellenform -i eingang.(mp4|mkv|mov|m4v|webm|aac|m4a|wav|mp3) -o ausgang.png
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+wellenform -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Erstellen Sie eine Wellenform aus einer Audio- oder Videodatei und speichern Sie sie als PNG
+
+wellenform -i eingang.(mp4|mkv|mov|m4v|webm|aac|m4a|wav|mp3) -o ausgang.png
+-i eingang.(mp4|mkv|mov|m4v|aac|m4a|wav|mp3)
+-o ausgang.png : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-Wellenform-Datum-Uhrzeit verwendet
+#+END_EXAMPLE
+
+*** wellenform Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+Eingabename-Wellenform-Datum-Uhrzeit
+
+Erstellen Sie Wellenformbilder aus allen MP4-Dateien im aktuellen Verzeichnis
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'wellenform -i "${0}"' \
+"{}" \;
+#+END_SRC
+
+** webp
+:PROPERTIES:
+:CUSTOM_ID: webp
+:END:
+
+Erstellen Sie ein animiertes Webp-Bild aus einem Video mit ffmpeg
+
+[[https://www.youtube.com/watch?v=5iXjbQ7uDiM][webp animierte bilder youtube]]
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+webp -i eingang -c 0-6 -q 0-100 -f 15 -w 600 -p none -o ausgang.webp
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+webp -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Webp animiertes Bild
+
+webp -i eingang -c 0-6 -q 0-100 -f 15 -w 600 -p none -o ausgang.webp
+-i eingang
+-c komprimierungsstufe: 0 - 6: standard 4
+-q qualität: 0 - 100 : standard 80
+-f framerate: standard 15
+-w breite: standard 600px
+-p voreingestellt: none|default|picture|photo|drawing|icon|text : standard none
+-o ausgang.webp : optionales argument
+# Wenn die Option nicht angegeben ist, wird standardmäßig input-name.webp verwendet
+#+END_EXAMPLE
+
+*** webp Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c 'webp -i "${0}"' "{}" \;
+#+END_SRC
+
+** xfade
+:PROPERTIES:
+:CUSTOM_ID: xfade
+:END:
+
++ [[https://www.youtube.com/watch?v=McQM3ooNx-4][xfade Skript Demo youtube]]
+
+Wenden Sie mit den xfade-Filtern einen Übergang zwischen zwei Clips an
+
+[[https://trac.ffmpeg.org/wiki/Xfade][xfade ffmpeg wiki]]
+
++ Verwendung von Skripten
+
+#+begin_src sh
+xfade -a clip1.(mp4|mkv|mov|m4v) -b clip2.(mp4|mkv|mov|m4v) -d dauer -t Übergang -f versetzt -o ausgang.mp4
+#+end_src
+
++ Skript hilfe
+
+#+begin_src sh
+xfade -h
+#+end_src
+
+#+begin_example
+# ffmpeg Xfade-Übergänge
+
+xfade -a clip1.(mp4|mkv|mov|m4v) -b clip2.(mp4|mkv|mov|m4v) -d dauer -t Übergang -f versetzt -o ausgang.mp4
+-a clip1.(mp4|mkv|mov|m4v) : erster Clip
+-b clip2.(mp4|mkv|mov|m4v) : zweiter Clip
+-d dauer                   : Übergangszeit
+-t übergang                : Übergang
+-f versetzt                : versetzt
+-o ausgang.mp4             : optionales Argument # wenn die Option nicht bereitgestellt wird,
+wird standardmäßig Eingabename-xfade-Datum-Uhrzeit verwendet
+
++ übergänge
+
+circleclose, circlecrop, circleopen, diagbl, diagbr, diagtl, diagtr, dissolve, distance
+fade, fadeblack, fadegrays, fadewhite, hblur, hlslice, horzclose, horzopen, hrslice
+pixelize, radial, rectcrop, slidedown, slideleft, slideright, slideup, smoothdown
+smoothleft, smoothright, smoothup, squeezeh, squeezev, vdslice, vertclose, vertopen, vuslice
+wipebl, wipebr, wipedown, wipeleft, wiperight, wipetl, wipetr, wipeup
+#+end_example
+
+** zoompan
+:PROPERTIES:
+:CUSTOM_ID: zoompan
+:END:
+
+Konvertieren Sie ein Bild in ein Video und wenden Sie den Ken Burns-Effekt auf den Clip an
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+zoompan -i eingang.(png|jpg|jpeg) -d (000) -z (in|out) -p (tl|c|tc|tr|bl|br) -o ausgang.mp4
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+zoompan -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# ken burns wirkung
+
+zoompan -i eingang.(png|jpg|jpeg) -d (000) -z (in|out) -p (tl|c|tc|tr|bl|br) -o ausgang.mp4
+-i = eingang.(png|jpg|jpeg)
+-d = dauer       : von 1-999
+-z = zoomen      : in or out
+-p = position    : Zoomen Sie auf die unten aufgeführte Position
+-o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Zoompan-Datum-Uhrzeit
+
++------------------------------+
++tl            tc            tr+
++                              +
++              c               +
++                              +
++bl                          br+
++------------------------------+
+#+END_EXAMPLE
+
+#+BEGIN_SRC sh
++------------------------------+
++tl            tc            tr+
++                              +        
++              c               +
++                              +
++bl                          br+
++------------------------------+
+#+END_SRC
+
+*** zoompan Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+Eingabename-Zoompan-Datum-Uhrzeit
+
+Batch-Verarbeitung aller PNG-Dateien im aktuellen Arbeitsverzeichnis,
+Wenden Sie das Zoompan-Skript mit einer Dauer von 5 Sekunden an, zoomen Sie in die Mitte des Bildes
+
+#+BEGIN_SRC sh
+find . -type f -name "*.png" -exec sh -c \
+'zoompan -i "${0}" -d 5 -z in -p c' \
+"{}" \;
+#+END_SRC
