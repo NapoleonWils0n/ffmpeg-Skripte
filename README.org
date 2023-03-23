@@ -15,6 +15,9 @@ oder wenn Sie ein englisches oder US-Layout im Terminal verwenden, lassen Sie es
 + [[#audio-stille][audio-stille]]
 + [[#kombinieren-clips][kombinieren-clips]]
 + [[#clip-zeit][clip-zeit]]
++ [[#kapitel-hinzufugen][kapitel-hinzufugen]]
++ [[#kapitel-csv][kapitel-csv]]
++ [[#kapitel-auszug][kapitel-auszug]]
 + [[#korrekter-clip][korrekter-clip]]
 + [[#clips-überblenden][clips-überblenden]]
 + [[#ebu-meter][ebu-meter]]
@@ -264,6 +267,82 @@ clip-zeit -i eingang -o ausgang
 
 #+begin_src sh
 clip-zeit -h
+#+end_src
+
+** kapitel-hinzufugen
+:PROPERTIES:
+:CUSTOM_ID: kapitel-hinzufugen
+:END:
+
+Hinzufügen von Kapiteln zu einer Video- oder Audiodatei mit ffmpeg mithilfe einer Metadatendatei,
+Verwenden Sie das Kapitel-CSV-Skript, um die Metadatendatei aus einer CSV-Datei zu erstellen
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+kapitel-hinzufugen -i eingabe -c metadata.txt -o ausgabe
+#+END_SRC
+
++ Skripthilfe
+
+#+begin_src sh
+kapitel-hinzufugen -h
+#+end_src
+
+** kapitel-csv
+:PROPERTIES:
+:CUSTOM_ID: kapitel-csv
+:END:
+
+Konvertieren Sie eine CSV-Datei in eine Kapitel-Metadatendatei für ffmpeg
+
++ script usage
+
+#+BEGIN_SRC sh
+kapitel-csv -i eingabe -o ausgabe
+#+END_SRC
+
++ script help
+
+#+begin_src sh
+kapitel-csv -h
+#+end_src
+
++ csv-Datei Beispiel
+
+Der letzte Datensatz ist die Dauer des Videos und wird als Endzeit für das vorherige Kapitel verwendet, und Ende wird nicht als Kapitel verwendet
+
+#+begin_example
+00:00:00,Einführung
+00:02:30,Szene 1
+00:05:00,Szene 2
+00:07:00,Szene 3
+00:10:00,Ende
+#+end_example
+
+** kapitel-auszug
+:PROPERTIES:
+:CUSTOM_ID: kapitel-auszug
+:END:
+
+Extrahieren Sie Kapitel aus einer Video- oder Audiodatei und speichern Sie sie als CSV-Datei
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+kapitel-auszug -i input -o output
+#+END_SRC
+
++ Skripthilfe
+
+#+begin_src sh
+kapitel-auszug -h
+#+end_src
+
++ Konvertieren Sie die CSV-Datei in YouTube-Zeitstempel
+
+#+begin_src sh
+tr ',' ' ' < eingabe.txt > Ausgabe.txt
 #+end_src
 
 ** kombinieren-clips

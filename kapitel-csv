@@ -1,0 +1,99 @@
+#!/bin/sh
+
+#=============================================================================
+# chapter-csv
+# Kapitel-csv
+# Konvertiere eine CSV-Datei in eine Kapitel-Metadatendatei für ffmpeg
+#=============================================================================
+
+# Abhängigkeiten:
+# awk
+
+#============================================================================
+# Skriptnutzung
+#============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+Konvertieren Sie eine CSV-Datei in eine Kapitel-Metadatendatei für ffmpeg
+$(basename "$0") -i eingabe -o ausgabe"
+exit 2
+}
+
+
+#============================================================================
+# Fehlermeldungen
+#============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='Erfordert ein Argument'
+WRONG_ARGS_ERR='Falsche Anzahl an Argumenten an Skript übergeben'
+
+
+#============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#============================================================================
+
+while getopts ':i:o:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     h) usage;;
+     o) output="${OPTARG}";;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#============================================================================
+# Variablen
+#============================================================================
+
+# Namen der Eingabedatei abrufen
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# Name der Ausgabedatei
+output_default="${input_name}-metadata.txt"
+
+
+#============================================================================
+# Sexagesimalfunktion
+#============================================================================
+
+sexagesimal () {
+total="$(awk 'END { print NR }' < "${input}")"
+awk -F "," '
+        {
+          time = $1
+          chapter = $2
+          if (time ~ /:/) {
+            split(time, t, ":")
+            combined = (t[1] * 3600) + (t[2] * 60) + t[3] 
+            milliseconds = (combined * 1000)
+          }
+          printf("%d,%s\n"), milliseconds, chapter
+     }' < "${input}" \
+| awk -v records="$total" -F "," ' \
+ { if (FNR < records) end = $1-1; else end = $1 }
+ NR == 1 {print ";FFMETADATA1"} NR > 1 {printf("%s\n%s\n%s%s\n%s%s\n%s%s\n"), "[CHAPTER]", "TIMEBASE=1/1000", "START=", prev, "END=", end, "title=", chapter}; {prev = $1; chapter = $2}' > "${output:=${output_default}}"
+}
+
+
+#============================================================================
+# Funktion ausführen
+#============================================================================
+
+sexagesimal

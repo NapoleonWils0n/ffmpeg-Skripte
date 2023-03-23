@@ -1,0 +1,93 @@
+#!/bin/sh
+
+#============================================================================
+# chapter-add
+# kapitel-hinzufügen
+# Hinzufügen von Kapiteln zu einer Video- oder Audiodatei mit ffmpeg
+#============================================================================
+
+# Abhängigkeiten:
+# ffmpeg
+
+#============================================================================
+# Skriptnutzung
+#============================================================================
+
+usage () {
+# Wenn das Argument an die Funktion übergeben wird, echo es
+[ -z "${1}" ] || echo "! ${1}"
+# Hilfe anzeigen
+echo "\
+Hinzufügen von Kapiteln zu einer Video- oder Audiodatei mit ffmpeg
+$(basename "$0") -i eingabe -c metadata.txt -o ausgabe"
+exit 2
+}
+
+#============================================================================
+# Fehlermeldungen
+#============================================================================
+
+INVALID_OPT_ERR='Ungültige Option:'
+REQ_ARG_ERR='Erfordert ein Argument'
+WRONG_ARGS_ERR='Falsche Anzahl an Argumenten an Skript übergeben'
+
+
+#============================================================================
+# Überprüfen Sie die Anzahl der an das Skript übergebenen Argumente
+#============================================================================
+
+[ $# -gt 0 ] || usage "${WRONG_ARGS_ERR}"
+
+
+#============================================================================
+# getopts überprüft die an das Skript übergebenen Optionen
+#============================================================================
+
+while getopts ':i:c:o:h' opt
+do
+  case ${opt} in
+     i) input="${OPTARG}";;
+     c) metadata="${OPTARG}";;
+     h) usage;;
+     o) output="${OPTARG}";;
+     \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
+     :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
+  esac
+done
+shift $((OPTIND-1))
+
+
+#============================================================================
+# Variablen
+#============================================================================
+
+# Namen der Eingabedatei abrufen
+input_nopath="${input##*/}"
+input_name="${input_nopath%.*}"
+
+# Eingabedateierweiterung
+input_ext="${input##*.}"
+
+# Name der Ausgabedatei
+output_default="${input_name}-metadata.${input_ext}"
+
+
+#============================================================================
+# Sexagesimal funktion
+#============================================================================
+
+meta () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -i "${input}" \
+    -i "${metadata}" -map_metadata 1 -c copy \
+    "${output:=${output_default}}"
+}
+
+
+#============================================================================
+# Funktion ausführen
+#============================================================================
+
+meta
