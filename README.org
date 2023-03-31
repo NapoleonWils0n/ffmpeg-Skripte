@@ -971,7 +971,7 @@ pfanne-scan -i eingang.(png|jpg|jpeg) -d (000) -p (l|r|u|d) -o ausgang.mp4
 -o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Pan-Datum-Uhrzeit
 #+END_EXAMPLE
 
-** sexagesimal-time
+** sexagesimal-zeit
 :PROPERTIES:
 :CUSTOM_ID: sexagesimal-zeit
 :END:
