@@ -31,6 +31,7 @@ oder wenn Sie ein englisches oder US-Layout im Terminal verwenden, lassen Sie es
 + [[#uberzug-clip][uberzug-clip]]
 + [[#uberzug-pip][uberzug-pip]]
 + [[#pfanne-scan][pfanne-scan]]
++ [[#sexagesimal-zeit][sexagesimal-zeit]]
 + [[#szene-geschnitten][szene-geschnitten]]
 + [[#szene-erkennen][szene-erkennen]]
 + [[#szene-bilder][szene-bilder]]
@@ -969,6 +970,33 @@ pfanne-scan -i eingang.(png|jpg|jpeg) -d (000) -p (l|r|u|d) -o ausgang.mp4
 -p = position : left, right, up, down
 -o = ausgang.mp4 : optionales Argument # Standard ist Eingabename-Pan-Datum-Uhrzeit
 #+END_EXAMPLE
+
+** sexagesimal-time
+:PROPERTIES:
+:CUSTOM_ID: sexagesimal-zeit
+:END:
+
+Berechnen Sie die sexagesimale Dauer, indem Sie die Endzeit von der Startzeit zum Trimmen von Dateien mit ffmpeg subtrahieren
+
++ Skripthilfe
+
+#+begin_src sh
+sexagesimal-zeit -h
+#+end_src
+
+Beispiel
+
+#+begin_src sh
+sexagesimal-zeit -s 00:05:30 -e 00:18:47
+#+end_src
+
+Ausgang
+
+#+begin_example
+00:13:17
+#+end_example
+
+funktioniert auch mit Millisekunden
 
 ** szene-geschnitten
 :PROPERTIES:
