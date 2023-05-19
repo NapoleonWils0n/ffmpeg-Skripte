@@ -21,11 +21,11 @@ echo "\
 # Trimmen Sie Video- oder Audioclips mit Millisekunden-Genauigkeit
 https://trac.ffmpeg.org/wiki/Seeking
 
-$(basename "$0") -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+$(basename "$0") -s 00:00:00.000 -i eingang -t 00:00:00.000 -o ausgang
 -s 00:00:00.000 : Startzeit
--i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3)
+-i eingang.(mp4|mov|mkv|m4v|webm|aac|m4a|wav|mp3|ogg)
 -t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
--o ausgang.(mp4|aac|mp3|wav) : optionales Argument
+-o ausgang.(mp4|webm|aac|mp3|wav|ogg) : optionales Argument
 # Wenn die Option nicht angegeben ist, wird standardmäßig der Eingabename-getrimmtes-Datum-Uhrzeit.(mp4|wav) verwendet"
 exit 2
 }
@@ -85,11 +85,13 @@ filetype="$(file --mime-type -b "${infile}")"
 mov_mime='video/quicktime'
 mkv_mime='video/x-matroska'
 mp4_mime='video/mp4'
+webm_mime='video/webm'
 m4v_mime='video/x-m4v'
 wav_mime='audio/x-wav'
 audio_mime='audio/mpeg'
 aac_mime='audio/x-hx-aac-adts'
 m4a_mime='audio/mp4'
+ogg_mime='audio/ogg'
 
 # Der Dateibefehl identifiziert .m4a-Audio fälschlicherweise als Videodatei
 # Also prüfen wir, ob die Dateierweiterung .m4a ist und setzen den MIME-Typ auf audio/mp4
@@ -99,10 +101,12 @@ fi
 
 # Standardwerte für Variablen, falls nicht definiert
 videofile_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").mp4"
+webm_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").webm"
 aac_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").aac"
 mp3_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").mp3"
 wav_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").wav"
 m4a_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").m4a"
+ogg_default="${infile_name}-trimmed-$(date +"%Y-%m-%d-%H-%M-%S").ogg"
 
 
 #===============================================================================
@@ -138,6 +142,21 @@ trim_video () {
     -pix_fmt yuv420p -movflags +faststart \
     -f mp4 \
     "${outfile:=${videofile_default}}"
+}
+
+
+# Webm-Videoclip zuschneiden
+trim_webm () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a libopus \
+    -c:v vp9 \
+    -f webm \
+    "${outfile:=${webm_default}}"
 }
 
 # AAC-Audioclip zuschneiden
@@ -192,6 +211,18 @@ trim_wav () {
     "${outfile:=${wav_default}}"
 }
 
+# Ogg-Audioclip zuschneiden
+trim_ogg () {
+    ffmpeg \
+    -hide_banner \
+    -stats -v panic \
+    -ss "${start}" \
+    -i "${infile}" \
+    -t "${end}" \
+    -c:a libopus \
+    -f ogg \
+    "${outfile:=${ogg_default}}"
+}
 
 #===============================================================================
 # Überprüfen Sie den MIME-Typ der Datei
@@ -199,9 +230,11 @@ trim_wav () {
 
 case "${filetype}" in
     "${mov_mime}"|"${mkv_mime}"|"${mp4_mime}"|"${m4v_mime}") trim_video "${infile}";;
+    "${webm_mime}") trim_webm "${infile}";;
     "${aac_mime}") trim_aac "${infile}";;
     "${m4a_mime}") trim_m4a "${infile}";;
     "${audio_mime}") trim_mp3 "${infile}";;
     "${wav_mime}") trim_wav "${infile}";;
+    "${ogg_mime}") trim_ogg "${infile}";;
     *) usage "${infile} ${NOT_MEDIA_FILE_ERR}";;
 esac
