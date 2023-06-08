@@ -1274,7 +1274,7 @@ Zum Beispiel wäre 02:30,5 2 Minuten, 30 Sekunden und eine halbe Sekunde, was de
 + Verwendung von Skripten
 
 #+BEGIN_SRC sh
-fliese-miniaturansichten -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -o ausgang.png
+fliese-miniaturansichten -i eingang -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -f Schriftfarbe -b Kastenfarbe -x on -o ausgang.png
 #+END_SRC
 
 + Skript hilfe
@@ -1286,7 +1286,8 @@ fliese-miniaturansichten -h
 #+BEGIN_EXAMPLE
 # Erstellen Sie ein Bild mit Miniaturansichten aus einem Video
 
-fliese-miniaturansichten -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -o ausgang.png
+fliese-miniaturansichten -i eingang -s 00:00:00.000 -w 000 -t 0x0 -p 00 -m 00 -c farbe -f Schriftfarbe -b Kastenfarbe -x on -o ausgang.png
+
 -i eingang.(mp4|mkv|mov|m4v|webm)
 -s Suchen Sie in der Videodatei            : Standard 00:00:05
 -w Thumbnail-Breite                        : 160
@@ -1294,6 +1295,9 @@ fliese-miniaturansichten -i eingang.(mp4|mkv|mov|m4v|webm) -s 00:00:00.000 -w 00
 -p Polsterung zwischen Bildern             : Standard 7
 -m Rand                                    : Standard 2
 -c Farbe = https://ffmpeg.org/ffmpeg-utils.html#color-syntax : Standard black
+-f Schriftfarbe                            : Standardmäßig weiß
+-b Kastenfarbe                             : Standardmäßig schwarz
+-x on                                      : Standardmäßig deaktiviert, Zeitstempel anzeigen
 -o ausgang.png :optionales Argument
 # Wenn die Option nicht bereitgestellt wird, wird standardmäßig Eingabename-Kachel-Datum-Uhrzeit.png verwendet
 #+END_EXAMPLE
