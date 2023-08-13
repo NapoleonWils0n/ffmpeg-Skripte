@@ -26,7 +26,7 @@ $(basename "$0") -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -o ausgang.pn
 -i eingang.(mp4|mov|mkv|m4v)
 -s 00:00:00.000    : optionales Argument #, wenn die Option nicht angegeben wird 00:00:00
 -o ausgang.png     : optionales Argument # wenn die Option nicht bereitgestellt wird,
-wird standardmäßig Eingabename-Frame-Datum-Uhrzeit verwendet"
+wird standardmäßig Eingabename-timecode"
 exit 2
 }
 
@@ -74,9 +74,8 @@ infile_nopath="${infile##*/}"
 infile_name="${infile_nopath%.*}"
 
 # Aufnahmeziel der Ausgabedatei
-outfile_default="${infile_name}-frame-$(date +"%Y-%m-%d-%H-%M-%S").png"
 seconds_default='00:00:00'
-
+outfile_default="${infile_name}-[${seconds:=${seconds_default}}].png"
 
 #===============================================================================
 # Funktionen
