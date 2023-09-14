@@ -21,9 +21,9 @@ usage()
 echo "\
 # Untertitel zu einem Video hinzufügen
 
-$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -s untertitel.srt -o ausgang.mp4
+$(basename "$0") -i eingang.(mp4|mkv|mov|m4v) -s untertitel.(srt|vtt) -o ausgang.mp4
 -i eingang.(mp4|mkv|mov|m4v)
--s untertitel.srt
+-s untertitel.(srt|vtt)
 -o ausgang.mp4 : optionales Argument # wenn die Option nicht bereitgestellt wird,
 wird standardmäßig Eingabename-Subs-Datum-Uhrzeit verwendet"
 exit 2
