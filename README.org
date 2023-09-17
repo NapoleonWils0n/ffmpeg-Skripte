@@ -1363,7 +1363,7 @@ trimmen-clip -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:
 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3)
 -t 00:00:00.000 : Anzahl Sekunden nach der Startzeit
 -o ausgang.(mp4|aac|mp3|wav) : optionales Argument
-# Wenn die Option nicht angegeben ist, wird standardmäßig der Eingabename-getrimmtes-Datum-Uhrzeit.(mp4|wav) verwendet
+# Wenn die Option nicht bereitgestellt wird, gilt die Standardeinstellung Name-eingeben-[start ende].(mp4|webm|aac|mp3|wav|ogg)
 #+END_EXAMPLE
 
 *** trimmen-clip Batch-Prozess
