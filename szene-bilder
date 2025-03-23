@@ -18,10 +18,13 @@ usage () {
 [ -z "${1}" ] || echo "! ${1}"
 # Hilfe anzeigen
 echo "\
-$(basename "$0") -i eingang -c datei schneiden
+$(basename "$0") -i eingang -c datei schneiden -t (png|jpg) -x breite -y höhe
 
 -i eingang.(mp4|mov|mkv|m4v)
--c datei schneiden"
+-c datei schneiden
+-t (png|jpg)       : optionales Argument # Wenn Option nicht Standardeinstellungen für PNG bereitgestellt wird
+-x breite          : optionales Argument #
+-y höhe            : optionales Argument #"
 exit 2
 }
 
@@ -46,11 +49,14 @@ WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
 # getopts überprüft die an das Skript übergebenen Optionen
 #===============================================================================
 
-while getopts ':i:c:h' opt
+while getopts ':i:c:t:x:y:h' opt
 do
   case ${opt} in
      i) input="${OPTARG}";;
      c) cutfile="${OPTARG}";;
+     t) image="${OPTARG}";;
+     x) width="${OPTARG}";;
+     y) height="${OPTARG}";;
      h) usage;;
      \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
      :) usage "${INVALID_OPT_ERR} ${OPTARG} ${REQ_ARG_ERR}" 1>&2;;
@@ -67,12 +73,17 @@ shift $((OPTIND-1))
 input_nopath="${input##*/}"
 input_name="${input_nopath%.*}"
 
+# Bildstandard
+image_default="png"
+
+
 #===============================================================================
 # ffmpeg-Bild extrahieren
 #===============================================================================
 
+# Bildfunktion
 extract () {
-  output="${input_name}-[${seconds}].png"
+  output="${input_name}-[${seconds}].${image:=${image_default}}"
   ffmpeg \
   -nostdin \
   -hide_banner \
@@ -85,11 +96,34 @@ extract () {
 }
 
 
+# Bild- und Skalierungsfunktion
+extract_scale () {
+  output="${input_name}-[${seconds}].${image:=${image_default}}"
+  ffmpeg \
+  -nostdin \
+  -hide_banner \
+  -stats -v panic \
+  -ss "${seconds}" \
+  -i "${input}" \
+  -q:v 2 -f image2 \
+  -vframes 1 \
+  -vf scale="${width:=-1}:${height:=-1}" \
+  "${output}"
+}
+
+
 #===============================================================================
 # Datei lesen und ffmpeg ausführen
 #===============================================================================
 
-count=1
-while IFS= read -r seconds; do
-   extract
-done < "${cutfile}"
+if [ -n "${width}" ] || [ -n "${height}" ]; then
+  count=1
+  while IFS= read -r seconds; do
+     extract_scale
+  done < "${cutfile}"
+else
+  count=1
+  while IFS= read -r seconds; do
+     extract
+  done < "${cutfile}"
+fi
