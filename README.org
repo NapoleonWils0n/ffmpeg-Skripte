@@ -1101,7 +1101,7 @@ und erstellt dann ein Bild für jeden Schnittpunkt
 + Verwendung von Skripten
 
 #+BEGIN_SRC sh
-szene-bilder -i eingang -c datei schneiden
+szene-bilder -i eingang -c datei schneiden -t (png|jpg) -x breite -y höhe
 #+END_SRC
 
 + Skript hilfe
@@ -1111,10 +1111,13 @@ szene-bilder -h
 #+end_src
 
 #+BEGIN_EXAMPLE
-szene-bilder -i eingang -c datei schneiden
+szene-bilder -i eingang -c datei schneiden -t (png|jpg) -x breite -y höhe
 
 -i eingang.(mp4|mov|mkv|m4v)
 -c datei schneiden
+-t (png|jpg)       : optionales Argument # Wenn Option nicht Standardeinstellungen für PNG bereitgestellt wird
+-x breite          : optionales Argument #
+-y höhe            : optionales Argument #
 #+END_EXAMPLE
 
 ** szene-zeit
