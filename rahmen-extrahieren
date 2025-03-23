@@ -19,13 +19,16 @@ usage()
 [ -z "${1}" ] || echo "! ${1}"
 # Hilfe anzeigen
 echo "\
-# Extrahieren Sie einen Frame aus einem Video als PNG-Datei
+# Extrahieren Sie einen Frame aus einem Video als png oder jpg
 https://trac.ffmpeg.org/wiki/Seeking
 
-$(basename "$0") -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -o ausgang.png
+$(basename "$0") -i eingang.(mp4|mov|mkv|m4v|webm) -s 00:00:00.000 -t (png|jpg) -x breite -y höhe -o ausgabe.(png|jpg)
 -i eingang.(mp4|mov|mkv|m4v)
--s 00:00:00.000    : optionales Argument #, wenn die Option nicht angegeben wird 00:00:00
--o ausgang.png     : optionales Argument # wenn die Option nicht bereitgestellt wird,
+-s 00:00:00.000      : optionales Argument # wenn die Option nicht angegeben wird 00:00:00
+-t (png|jpg)         : optionales Argument # Wenn Option nicht Standardeinstellungen für PNG bereitgestellt wird
+-x breite            : optionales Argument #
+-y höhe              : optionales Argument #
+-o ausgabe.(png|jpg) : optionales Argument # wenn die Option nicht bereitgestellt wird,
 wird standardmäßig Eingabename-timecode"
 exit 2
 }
@@ -51,11 +54,14 @@ WRONG_ARGS_ERR='falsche Anzahl von Argumenten an Skript übergeben'
 # getopts überprüft die an das Skript übergebenen Optionen
 #===============================================================================
 
-while getopts ':i:s:o:h' opt
+while getopts ':i:s:t:x:y:o:h' opt
 do
   case ${opt} in
      i) infile="${OPTARG}";;
      s) seconds="${OPTARG}";;
+     t) image="${OPTARG}";;
+     x) width="${OPTARG}";;
+     y) height="${OPTARG}";;
      o) outfile="${OPTARG}";;
      h) usage;;
      \?) usage "${INVALID_OPT_ERR} ${OPTARG}" 1>&2;;
@@ -73,9 +79,15 @@ shift $((OPTIND-1))
 infile_nopath="${infile##*/}"
 infile_name="${infile_nopath%.*}"
 
-# Aufnahmeziel der Ausgabedatei
+# Sekunden Standard
 seconds_default='00:00:00'
-outfile_default="${infile_name}-[${seconds:=${seconds_default}}].png"
+
+# Bildstandard
+image_default="png"
+
+# Dateiaufzeichnungsziel ausgeben
+outfile_default="${infile_name}-[${seconds:=${seconds_default}}].${image:=${image_default}}"
+
 
 #===============================================================================
 # Funktionen
@@ -93,5 +105,25 @@ extract () {
   "${outfile:=${outfile_default}}"
 }
 
-# Führen Sie die Extraktionsfunktion aus
-extract "${infile}"
+# Bild zu Video mit Skalenfunktion
+extract_scale () {
+  ffmpeg \
+  -hide_banner \
+  -stats -v panic \
+  -ss "${seconds:=${seconds_default}}" \
+  -i "${infile}" \
+  -q:v 2 -f image2 \
+  -vframes 1 \
+  -vf scale="${width:=-1}:${height:=-1}" \
+  "${outfile:=${outfile_default}}"
+}
+
+#===============================================================================
+# Lauffunktion
+#===============================================================================
+
+if [ -n "${width}" ] || [ -n "${height}" ]; then
+  extract_scale "${infile}"
+else
+  extract "${infile}"
+fi
