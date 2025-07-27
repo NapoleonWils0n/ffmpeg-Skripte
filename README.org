@@ -40,6 +40,7 @@ oder wenn Sie ein englisches oder US-Layout im Terminal verwenden, lassen Sie es
 + [[#bereiche][bereiche]]
 + [[#fliese-miniaturansichten][fliese-miniaturansichten]]
 + [[#trimmen-clip][trimmen-clip]]
++ [[#trimmen-clip-zu][trimmen-clip-zu]]
 + [[#vid2gif][vid2gif]]
 + [[#wellenform][wellenform]]
 + [[#webp][webp]]
@@ -1385,6 +1386,62 @@ von 00:00:00 bis 00:00:30
 #+BEGIN_SRC sh
 find . -type f -name "*.mp4" -exec sh -c \
 'trimmen-clip -s 00:00:00 -i "${0}" -t 00:00:30' \
+"{}" \;
+#+END_SRC
+
+** trimmen-clip-zu
+:PROPERTIES:
+:CUSTOM_ID: trimmen-clip-zu
+:END:
+
+Trimmen von Videoclips und Audioclips
+
+[[https://trac.ffmpeg.org/wiki/Seeking][ffmpeg wiki suchen]]
+
+Beachten Sie, dass Sie zwei verschiedene Formate für Zeiteinheiten verwenden können: Sexagesimal (HOURS:MM:SS.MILLISECONDS, wie in 01:23:45.678) oder in Sekunden.
+Wenn ein Bruch verwendet wird, z. B. 02:30.05, wird dies als "5 Hundertstelsekunden" interpretiert, nicht als Frame 5.
+Zum Beispiel wäre 02:30,5 2 Minuten, 30 Sekunden und eine halbe Sekunde, was der Verwendung von 150,5 in Sekunden entspricht.
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+trimmen-clip-zu -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+#+END_SRC
+
+Die trimmen-clip-zu nutzt eine Startzeit mit der Option -s, und
+eine Endzeit mit der Option -t
+
++ Skript hilfe
+
+#+begin_src sh
+trimmen-clip-zu -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+# Trimmen Sie Video- oder Audioclips mit Millisekunden-Genauigkeit
+https://trac.ffmpeg.org/wiki/Seeking
+
+trimmen-clip-zu -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 00:00:00.000 -o ausgang.(mp4|aac|mp3|wav)
+-s 00:00:00.000 : Startzeit
+-i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3)
+-t 00:00:00.000 : Endzeit
+-o ausgang.(mp4|aac|mp3|wav) : optionales Argument
+# Wenn die Option nicht bereitgestellt wird, gilt die Standardeinstellung Name-eingeben-[start ende].(mp4|webm|aac|mp3|wav|ogg)
+#+END_EXAMPLE
+
+*** trimmen-clip Batch-Prozess
+
+Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
+  
+Beachten Sie, dass wir die Option -o weglassen, um den Standardausgabenamen zu verwenden.
+input-name-trimmed-date-time
+
+Alle mp4-Dateien im aktuellen Verzeichnis stapelweise trimmen,
+von 00:00:00 bis 00:00:30
+
+#+BEGIN_SRC sh
+find . -type f -name "*.mp4" -exec sh -c \
+'trimmen-clip-zu -s 00:00:00 -i "${0}" -t 00:00:30' \
 "{}" \;
 #+END_SRC
 
