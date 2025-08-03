@@ -1429,7 +1429,7 @@ trimmen-clip-zu -s 00:00:00.000 -i eingang.(mp4|mov|mkv|m4v|aac|m4a|wav|mp3) -t 
 # Wenn die Option nicht bereitgestellt wird, gilt die Standardeinstellung Name-eingeben-[start ende].(mp4|webm|aac|mp3|wav|ogg)
 #+END_EXAMPLE
 
-*** trimmen-clip Batch-Prozess
+*** trimmen-clip-zu Batch-Prozess
 
 Stapelverarbeitungsdateien im aktuellen Arbeitsverzeichnis
   
