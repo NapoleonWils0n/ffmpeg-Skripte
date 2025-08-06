@@ -33,6 +33,7 @@ oder wenn Sie ein englisches oder US-Layout im Terminal verwenden, lassen Sie es
 + [[#pfanne-scan][pfanne-scan]]
 + [[#sexagesimal-zeit][sexagesimal-zeit]]
 + [[#szene-geschnitten][szene-geschnitten]]
++ [[#szene-geschnitten-zu][szene-geschnitten-zu]]
 + [[#szene-erkennen][szene-erkennen]]
 + [[#szene-bilder][szene-bilder]]
 + [[#scene-zeit][scene-zeit]]
@@ -1050,6 +1051,46 @@ und ein weiterer 30-Sekunden-Clip, der bei 60 beginnt
 #+begin_example
 0,30
 60,30
+#+end_example
+
+** szene-geschnitten-zu
+:PROPERTIES:
+:CUSTOM_ID: szene-geschnitten-zu
+:END:
+
+Szene-Cut-to nimmt eine Schnittdatei und ein Video und schneidet das
+Video in Clips ein Verwenden einer Startzeit und einer Endposition
+
++ Verwendung von Skripten
+
+#+BEGIN_SRC sh
+szene-geschnitten-zu -i eingang -c datei schneiden
+#+END_SRC
+
++ Skript hilfe
+
+#+begin_src sh
+szene-geschnitten-zu -h
+#+end_src
+
+#+BEGIN_EXAMPLE
+szene-geschnitten-zu -i eingang -c datei schneiden
+
+-i eingang.(mp4|mov|mkv|m4v)
+-c datei schneiden
+#+END_EXAMPLE
+
+ffmpeg erfordert einen Startpunkt und eine Dauer, keinen Endpunkt
+
+Schnittdatei - Stunden, Minuten, Sekunden
+In diesem Beispiel erstellen wir Clips von 2 bis 30 Sekunden
+
+szene-geschnitten-zu nimmt eine Schnittdatei und ein Video und schneidet das
+Video in Clips ein Verwenden einer Startzeit und einer Endposition
+
+#+begin_example
+00:00:00,00:00:30
+00:01:00,00:01:30
 #+end_example
 
 ** szene-erkennen
